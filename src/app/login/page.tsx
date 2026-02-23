@@ -6,22 +6,34 @@ export default function RegisterPage() {
     const [password, setPassword] = useState("");   
     const [msg, setMsg] = useState("");
     async function onSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        setMsg("Logging in...");
-        // check to see if the email or username is in database
-        const r = await fetch("/api/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ emailorUsername: emailOrUsername, password }),
-        });
-        const data = await r.json();
-        if (!r.ok) {
-            return setMsg(data.error);
-        }
-        setMsg("Login successful! Welcome, " + data.username);
+    e.preventDefault();
+    setMsg("Logging in...");
+
+    const r = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            emailorUsername: emailOrUsername,
+            password
+        }),
+    });
+
+    const data = await r.json();
+
+    if (!r.ok) {
+        return setMsg(data.error);
     }
+
+    // Save user_id so other pages can read it
+    localStorage.setItem("user_id", data.user_id);
+
+    setMsg("Login successful! Redirecting...");
+
+    // Go to sessions page
+    window.location.href = "/";
+}
 
     return (
         <main style={{ padding: 24, maxWidth: 480 }}>

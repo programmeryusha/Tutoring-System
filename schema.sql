@@ -17,10 +17,10 @@ create table if not exists users(
     user_id uuid primary key default gen_random_uuid(),
     username text not null unique,
     password_hash text not null,
-    role user_role not null unique, 
-    created_at timestamptz not null default now()
+    role user_role not null, 
+    created_at timestamptz not null default now(),
     vacation_mode boolean not null default false
-)
+);
 
 -- logiin history 
 create table if not exists login_history(
@@ -41,17 +41,17 @@ create table if not exists skills(
 create table if not exists sessions(
     session_id uuid primary key default gen_random_uuid(),
     student_id uuid not null references users(user_id) on delete cascade,
-    tutor_id uuid not null references users(user_id) on delete set null,
-    skill_id uuid not null references skills(skill_id) on delete set null,
+    tutor_id uuid references users(user_id) on delete set null,
+    skill_id uuid references skills(skill_id) on delete set null,
     scheduled_at timestamptz not null,
     duration_minutes int not null,
-    status session_status not null default 'open',
-    created_at timestamptz not null default now()
+    status session_status not null default 'scheduled',
+    created_at timestamptz not null default now(),
     -- tutor_id being null when session is scheduled is not a problem, we can assign a tutor later
     check (tutor_id is null or tutor_id <> student_id)
-)
+);
 
 -- making indexes to speed up queries on sessions table, especially when filtering by student_id, tutor_id, or skill_id
 create index if not exists idx_sessions_student_id on sessions(student_id);
 create index if not exists idx_sessions_tutor_id on sessions(tutor_id);
-create index if not exists idx_sessions_skill_id on sessions(status);
+create index if not exists idx_sessions_skill_id on sessions(skill_id);

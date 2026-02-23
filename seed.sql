@@ -8,7 +8,7 @@ insert into skills (skill_name) values
 ('History'),
 ('Economics'),
 ('Psychology'),
-('Philosophy');
+('Philosophy'),
 ('Art'),
 ('Music'),
 ('Foreign Languages'),

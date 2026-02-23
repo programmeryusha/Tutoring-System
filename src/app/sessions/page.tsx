@@ -23,22 +23,38 @@ export default function SessionsPage() {
     }, [userID]);
 
     async function createSession(e: React.FormEvent) {
-        e.preventDefault();
-        if (!userID) return;
-        const r = await fetch("/api/sessions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ ...form, student_id: userID }),
-        });
-        const data = await r.json();
-        if (!r.ok) {
-            return setMsg(data.error);
-        }
-        const s = await fetch(`/api/sessions?user_id=${userID}`).then((rr) => rr.json());
-        setSessions(s.sessions || []);
+    e.preventDefault();
+    if (!userID) return;
+
+    if (!form.scheduled_at) {
+        return setMsg("Please enter valid date and time.");
     }
+
+    const isoDate = new Date(form.scheduled_at).toISOString();
+
+    const r = await fetch("/api/sessions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            ...form,
+            student_id: userID,
+            scheduled_at: isoDate
+        }),
+    });
+
+    const data = await r.json();
+
+    if (!r.ok) {
+        return setMsg(data.error);
+    }
+
+    const s = await fetch(`/api/sessions?user_id=${userID}`)
+        .then((rr) => rr.json());
+
+    setSessions(s.sessions || []);
+}
     return (
         <main style={{ padding: 24, maxWidth: 480 }}>
             <h1>Sessions</h1>
