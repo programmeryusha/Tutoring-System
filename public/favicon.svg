@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="white"/>
+  <g transform="translate(50,50) scale(0.35)" fill="#0039A6">
+    <!-- Main pad -->
+    <ellipse cx="0" cy="30" rx="38" ry="32"/>
+    <!-- Top left toe -->
+    <ellipse cx="-38" cy="-20" rx="16" ry="20" transform="rotate(-15,-38,-20)"/>
+    <!-- Top left-center toe -->
+    <ellipse cx="-14" cy="-42" rx="14" ry="19" transform="rotate(-5,-14,-42)"/>
+    <!-- Top right-center toe -->
+    <ellipse cx="14" cy="-42" rx="14" ry="19" transform="rotate(5,14,-42)"/>
+    <!-- Top right toe -->
+    <ellipse cx="38" cy="-20" rx="16" ry="20" transform="rotate(15,38,-20)"/>
+  </g>
+</svg>
