@@ -5,15 +5,14 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 interface Skill {
-  id: string;
+  id: number;
   name: string;
-  category: string;
+  category: string; // derived from course code prefix
 }
 
 interface UserSkill {
-  skill_id: string;
+  skill_id: number;
   is_strength: boolean;
-  skill_level: number;
 }
 
 interface ProfileData {
@@ -21,10 +20,36 @@ interface ProfileData {
   bio: string;
   major: string;
   year: string;
+  vacation_mode: boolean;
 }
 
 const YEARS = ["Freshman", "Sophomore", "Junior", "Senior", "Graduate"];
-const CATEGORIES = ["Math", "Computer Science", "Science", "Humanities", "Business", "Languages"];
+const MAX_STRENGTHS = 4;
+const MAX_WEAKNESSES = 4;
+
+// Map course code prefixes to readable category names
+const PREFIX_TO_CATEGORY: Record<string, string> = {
+  CSC: "Computer Science",
+  MATH: "Mathematics",
+  BIOL: "Biology",
+  CHEM: "Chemistry",
+  PHYS: "Physics",
+  ACCT: "Accounting",
+  ECON: "Economics",
+  MGS: "Business",
+  ENGL: "English",
+  PHIL: "Philosophy",
+  PSYC: "Psychology",
+  POLS: "Political Science",
+};
+
+function getCategoryFromName(name: string): string {
+  const prefix = name.split(" ")[0];
+  return PREFIX_TO_CATEGORY[prefix] || prefix;
+}
+
+// Derive ordered category list from the prefix map
+const CATEGORIES = [...new Set(Object.values(PREFIX_TO_CATEGORY))];
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
@@ -36,6 +61,7 @@ export default function ProfilePage() {
     bio: "",
     major: "",
     year: "",
+    vacation_mode: false,
   });
   const [activeTab, setActiveTab] = useState<"profile" | "strengths" | "weaknesses">("profile");
   const [saving, setSaving] = useState(false);
@@ -53,7 +79,7 @@ export default function ProfilePage() {
       // Load profile
       const { data: prof } = await supabase
         .from("profiles")
-        .select("full_name, bio, major, year")
+        .select("full_name, bio, major, year, vacation_mode")
         .eq("id", user!.id)
         .single();
       if (prof) {
@@ -62,41 +88,54 @@ export default function ProfilePage() {
           bio: prof.bio || "",
           major: prof.major || "",
           year: prof.year || "",
+          vacation_mode: prof.vacation_mode || false,
         });
       }
 
-      // Load all skills
+      // Load all skills (DB has id + name only; we derive category from prefix)
       const { data: allSkills } = await supabase
         .from("skills")
-        .select("id, name, category")
-        .order("category")
+        .select("id, name")
         .order("name");
-      setSkills(allSkills || []);
+      const enriched = (allSkills || []).map((s) => ({
+        ...s,
+        category: getCategoryFromName(s.name),
+      }));
+      setSkills(enriched);
 
-      // Load user skills
+      // Load user skills (DB uses level enum: mastered = strength, needs_help = weakness)
       const { data: us } = await supabase
         .from("user_skills")
-        .select("skill_id, is_strength, skill_level")
+        .select("skill_id, level")
         .eq("user_id", user!.id);
-      setUserSkills(us || []);
+      const mapped = (us || []).map((s) => ({
+        skill_id: s.skill_id,
+        is_strength: s.level === "mastered" || s.level === "proficient",
+      }));
+      setUserSkills(mapped);
       setLoadingData(false);
     }
     load();
   }, [user]);
 
-  const toggleSkill = useCallback((skillId: string, isStrength: boolean) => {
+  const toggleSkill = useCallback((skillId: number, isStrength: boolean) => {
     setUserSkills((prev) => {
       const existing = prev.find((s) => s.skill_id === skillId && s.is_strength === isStrength);
       if (existing) {
+        // Always allow deselecting
         return prev.filter((s) => !(s.skill_id === skillId && s.is_strength === isStrength));
       }
+      // Enforce limits before adding
+      const currentCount = prev.filter((s) => s.is_strength === isStrength).length;
+      const max = isStrength ? MAX_STRENGTHS : MAX_WEAKNESSES;
+      if (currentCount >= max) return prev; // at limit, do nothing
       // Remove if it exists in the other category
       const filtered = prev.filter((s) => s.skill_id !== skillId);
-      return [...filtered, { skill_id: skillId, is_strength: isStrength, skill_level: isStrength ? 3 : 1 }];
+      return [...filtered, { skill_id: skillId, is_strength: isStrength }];
     });
   }, []);
 
-  const isSelected = (skillId: string, isStrength: boolean) => {
+  const isSelected = (skillId: number, isStrength: boolean) => {
     return userSkills.some((s) => s.skill_id === skillId && s.is_strength === isStrength);
   };
 
@@ -113,15 +152,14 @@ export default function ProfilePage() {
           updated_at: new Date().toISOString(),
         });
 
-      // Save skills: delete all then insert
+      // Save skills: delete all then insert (map is_strength back to DB level enum)
       await supabase.from("user_skills").delete().eq("user_id", user.id);
       if (userSkills.length > 0) {
         await supabase.from("user_skills").insert(
           userSkills.map((s) => ({
             user_id: user.id,
             skill_id: s.skill_id,
-            is_strength: s.is_strength,
-            skill_level: s.skill_level,
+            level: s.is_strength ? "mastered" : "needs_help",
           }))
         );
       }
@@ -150,8 +188,8 @@ export default function ProfilePage() {
 
   const tabs = [
     { id: "profile" as const, label: "Profile Info", icon: "👤" },
-    { id: "strengths" as const, label: `Strengths (${strengths.length})`, icon: "💪" },
-    { id: "weaknesses" as const, label: `Weaknesses (${weaknesses.length})`, icon: "📚" },
+    { id: "strengths" as const, label: `Strengths (${strengths.length}/${MAX_STRENGTHS})`, icon: "💪" },
+    { id: "weaknesses" as const, label: `Weaknesses (${weaknesses.length}/${MAX_WEAKNESSES})`, icon: "📚" },
   ];
 
   return (
@@ -265,18 +303,100 @@ export default function ProfilePage() {
                     style={{ resize: "vertical" }}
                   />
                 </div>
+
+                {/* Vacation Mode */}
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "1rem",
+                  borderRadius: "var(--radius-lg)",
+                  border: `1px solid ${profile.vacation_mode ? "var(--gsu-red)" : "var(--border-color)"}`,
+                  background: profile.vacation_mode ? "rgba(204,0,0,0.05)" : "var(--bg-secondary)",
+                  transition: "all 0.2s ease",
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      🏖️ Vacation Mode
+                    </div>
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", margin: "0.25rem 0 0 0" }}>
+                      When on, your strengths are hidden from matching. You can still find tutors.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setProfile((p) => ({ ...p, vacation_mode: !p.vacation_mode }))}
+                    style={{
+                      width: 52,
+                      height: 28,
+                      borderRadius: 14,
+                      border: "none",
+                      background: profile.vacation_mode ? "var(--gsu-red)" : "var(--border-color)",
+                      cursor: "pointer",
+                      position: "relative",
+                      transition: "background 0.2s ease",
+                      flexShrink: 0,
+                    }}
+                    aria-label="Toggle vacation mode"
+                  >
+                    <span style={{
+                      position: "absolute",
+                      top: 3,
+                      left: profile.vacation_mode ? 27 : 3,
+                      width: 22,
+                      height: 22,
+                      borderRadius: "50%",
+                      background: "white",
+                      transition: "left 0.2s ease",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                    }} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {(activeTab === "strengths" || activeTab === "weaknesses") && (
+          {(activeTab === "strengths" || activeTab === "weaknesses") && (() => {
+            const isStr = activeTab === "strengths";
+            const currentCount = isStr ? strengths.length : weaknesses.length;
+            const max = isStr ? MAX_STRENGTHS : MAX_WEAKNESSES;
+            const atLimit = currentCount >= max;
+            return (
             <div>
               <div className="card" style={{ cursor: "default", marginBottom: "1rem" }}>
                 <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.9rem" }}>
-                  {activeTab === "strengths"
+                  {isStr
                     ? "💪 Select subjects you can help others with. These are your strong areas."
                     : "📚 Select subjects you'd like help with. We'll match you with tutors."}
                 </p>
+                {/* Limit indicator */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: "0.75rem",
+                  marginTop: "0.75rem",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: "var(--radius-lg)",
+                  background: atLimit ? "rgba(204,0,0,0.06)" : "rgba(0,57,166,0.04)",
+                  border: `1px solid ${atLimit ? "rgba(204,0,0,0.15)" : "rgba(0,57,166,0.1)"}`,
+                }}>
+                  <div style={{
+                    display: "flex", gap: "0.25rem",
+                  }}>
+                    {Array.from({ length: max }).map((_, i) => (
+                      <div key={i} style={{
+                        width: 10, height: 10, borderRadius: "50%",
+                        background: i < currentCount
+                          ? (isStr ? "var(--gsu-blue)" : "var(--gsu-red)")
+                          : "var(--border-color)",
+                        transition: "background 0.2s ease",
+                      }} />
+                    ))}
+                  </div>
+                  <span style={{
+                    fontSize: "0.8rem", fontWeight: 600,
+                    color: atLimit ? "var(--gsu-red)" : "var(--text-muted)",
+                  }}>
+                    {currentCount}/{max} selected{atLimit ? " — limit reached" : ""}
+                  </span>
+                </div>
               </div>
 
               {CATEGORIES.map((category) => {
@@ -296,41 +416,53 @@ export default function ProfilePage() {
                     </h4>
                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                       {categorySkills.map((skill) => {
-                        const selected = isSelected(skill.id, activeTab === "strengths");
-                        const inOther = isSelected(skill.id, activeTab !== "strengths");
+                        const selected = isSelected(skill.id, isStr);
+                        const inOther = isSelected(skill.id, !isStr);
+                        const disabled = !selected && atLimit && !inOther;
                         return (
                           <button
                             key={skill.id}
-                            onClick={() => toggleSkill(skill.id, activeTab === "strengths")}
+                            onClick={() => toggleSkill(skill.id, isStr)}
+                            disabled={disabled}
                             style={{
                               padding: "0.5rem 1rem",
                               borderRadius: "var(--radius-full)",
                               border: selected
-                                ? `2px solid ${activeTab === "strengths" ? "var(--gsu-blue)" : "var(--gsu-red)"}`
+                                ? `2px solid ${isStr ? "var(--gsu-blue)" : "var(--gsu-red)"}`
                                 : "1px solid var(--border-color)",
                               background: selected
-                                ? activeTab === "strengths"
+                                ? isStr
                                   ? "rgba(0,57,166,0.12)"
                                   : "rgba(204,0,0,0.1)"
                                 : inOther
                                 ? "rgba(128,128,128,0.1)"
+                                : disabled
+                                ? "var(--bg-secondary)"
                                 : "var(--bg-primary)",
                               color: selected
-                                ? activeTab === "strengths"
+                                ? isStr
                                   ? "var(--gsu-blue)"
                                   : "var(--gsu-red)"
                                 : inOther
                                 ? "var(--text-muted)"
+                                : disabled
+                                ? "var(--text-muted)"
                                 : "var(--text-secondary)",
-                              cursor: "pointer",
+                              cursor: disabled ? "not-allowed" : "pointer",
                               fontWeight: selected ? 600 : 400,
                               transition: "all 0.2s ease",
                               fontSize: "0.9rem",
-                              opacity: inOther ? 0.5 : 1,
+                              opacity: inOther ? 0.5 : disabled ? 0.4 : 1,
                             }}
-                            title={inOther ? `Already in ${activeTab === "strengths" ? "weaknesses" : "strengths"}` : ""}
+                            title={
+                              inOther
+                                ? `Already in ${isStr ? "weaknesses" : "strengths"}`
+                                : disabled
+                                ? `Max ${max} ${isStr ? "strengths" : "weaknesses"} reached`
+                                : ""
+                            }
                           >
-                            {selected && (activeTab === "strengths" ? "✓ " : "✓ ")}
+                            {selected && "✓ "}
                             {skill.name}
                           </button>
                         );
@@ -340,7 +472,8 @@ export default function ProfilePage() {
                 );
               })}
             </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Save Button */}
@@ -375,7 +508,7 @@ export default function ProfilePage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
               <div>
                 <h4 style={{ fontSize: "0.85rem", color: "var(--gsu-blue)", fontWeight: 600, marginBottom: "0.5rem" }}>
-                  💪 Strengths ({strengths.length})
+                  💪 Strengths ({strengths.length}/{MAX_STRENGTHS})
                 </h4>
                 <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
                   {strengths.map((s) => {
@@ -388,7 +521,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <h4 style={{ fontSize: "0.85rem", color: "var(--gsu-red)", fontWeight: 600, marginBottom: "0.5rem" }}>
-                  📚 Weaknesses ({weaknesses.length})
+                  📚 Weaknesses ({weaknesses.length}/{MAX_WEAKNESSES})
                 </h4>
                 <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
                   {weaknesses.map((s) => {

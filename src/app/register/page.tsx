@@ -29,7 +29,7 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -43,6 +43,14 @@ export default function RegisterPage() {
       setError(error.message);
       setLoading(false);
       return;
+    }
+
+    // Create profile row so the user has a name from day one
+    if (signUpData.user) {
+      await supabase.from("profiles").upsert({
+        id: signUpData.user.id,
+        full_name: fullName,
+      }, { onConflict: "id" });
     }
 
     router.push("/dashboard");
