@@ -67,257 +67,306 @@ function drawCard(
   const ctx = canvas.getContext("2d")!;
   ctx.scale(dpr, dpr);
 
-  /* ── Background ── */
   const gsuBlue = "#0039A6";
   const gsuRed = "#CC0000";
-  const darkBg = "#0f172a";
 
+  /* ── Background ── */
   if (style === "tutor") {
     const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, "#001f5c");
-    grad.addColorStop(0.5, gsuBlue);
+    grad.addColorStop(0, "#001a4d");
+    grad.addColorStop(0.5, "#002e8a");
     grad.addColorStop(1, "#0050d4");
     ctx.fillStyle = grad;
   } else if (style === "milestone") {
     const grad = ctx.createLinearGradient(0, 0, W, H);
     grad.addColorStop(0, "#1a0a00");
-    grad.addColorStop(0.3, "#4a1500");
-    grad.addColorStop(0.7, gsuRed);
-    grad.addColorStop(1, "#ff3333");
+    grad.addColorStop(0.4, "#5a1a00");
+    grad.addColorStop(1, "#cc2200");
     ctx.fillStyle = grad;
   } else {
     const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, darkBg);
-    grad.addColorStop(0.6, "#1e293b");
+    grad.addColorStop(0, "#0f172a");
+    grad.addColorStop(0.5, "#1e293b");
     grad.addColorStop(1, "#0f172a");
     ctx.fillStyle = grad;
   }
   roundRect(ctx, 0, 0, W, H, 24);
   ctx.fill();
 
-  /* ── Subtle pattern overlay ── */
-  ctx.globalAlpha = 0.03;
-  for (let i = 0; i < 20; i++) {
+  /* ── Subtle decorative circles ── */
+  ctx.globalAlpha = 0.025;
+  const seed = data.profile.full_name?.length || 7;
+  for (let i = 0; i < 12; i++) {
+    const cx = ((seed * (i + 1) * 97) % W);
+    const cy = ((seed * (i + 1) * 53) % H);
     ctx.beginPath();
-    ctx.arc(Math.random() * W, Math.random() * H, Math.random() * 120 + 40, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 60 + (i * 15), 0, Math.PI * 2);
     ctx.fillStyle = "#fff";
     ctx.fill();
   }
   ctx.globalAlpha = 1;
 
   /* ── Top accent bar ── */
-  const grad2 = ctx.createLinearGradient(0, 0, W, 0);
-  grad2.addColorStop(0, gsuBlue);
-  grad2.addColorStop(1, gsuRed);
-  ctx.fillStyle = grad2;
+  const topBarGrad = ctx.createLinearGradient(0, 0, W, 0);
+  topBarGrad.addColorStop(0, gsuBlue);
+  topBarGrad.addColorStop(1, gsuRed);
+  ctx.fillStyle = topBarGrad;
   ctx.fillRect(0, 0, W, 6);
 
-  /* ── Logo / branding area ── */
+  /* ── Bottom accent bar ── */
+  const botBarGrad = ctx.createLinearGradient(0, 0, W, 0);
+  botBarGrad.addColorStop(0, gsuBlue);
+  botBarGrad.addColorStop(1, gsuRed);
+  ctx.fillStyle = botBarGrad;
+  ctx.fillRect(0, H - 5, W, 5);
+
+  // ─── LAYOUT CONSTANTS ───
+  const padX = 60;
+  const contentW = W - padX * 2;
+
+  /* ═══ Header row: Logo left, GSU badge right ═══ */
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
-  ctx.fillText("🐾 PantherTutor", 48, 56);
+  ctx.font = "bold 30px system-ui, -apple-system, sans-serif";
+  ctx.fillText("🐾 PantherTutor", padX, 54);
 
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.font = "14px system-ui, -apple-system, sans-serif";
-  ctx.fillText("Georgia State University • Peer Tutoring Platform", 48, 80);
+  ctx.fillStyle = "rgba(255,255,255,0.45)";
+  ctx.font = "15px system-ui, -apple-system, sans-serif";
+  ctx.fillText("Georgia State University  •  Peer Tutoring Platform", padX, 80);
 
-  /* ── GSU seal (right side) ── */
+  // GSU circle badge (top-right)
   ctx.fillStyle = "rgba(255,255,255,0.06)";
   ctx.beginPath();
-  ctx.arc(W - 100, 60, 50, 0, Math.PI * 2);
+  ctx.arc(W - padX - 35, 52, 35, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.3)";
-  ctx.font = "bold 18px system-ui";
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.font = "bold 16px system-ui";
   ctx.textAlign = "center";
-  ctx.fillText("GSU", W - 100, 66);
+  ctx.fillText("GSU", W - padX - 35, 58);
   ctx.textAlign = "left";
 
+  /* ── Divider ── */
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padX, 100);
+  ctx.lineTo(W - padX, 100);
+  ctx.stroke();
+
+  /* ═══ User identity section ═══ */
   const name = data.profile.full_name || "PantherTutor User";
   const major = data.profile.major || "";
   const year = data.profile.year || "";
+  const initials = name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
-  /* ── User section ── */
-  // Avatar circle
-  const avatarX = 80;
-  const avatarY = 155;
-  const avatarR = 42;
-  ctx.fillStyle = "rgba(255,255,255,0.1)";
+  // Avatar
+  const avatarX = padX + 48;
+  const avatarY = 165;
+  const avatarR = 48;
+
+  // Glow ring
+  ctx.fillStyle = "rgba(255,255,255,0.07)";
   ctx.beginPath();
-  ctx.arc(avatarX, avatarY, avatarR + 4, 0, Math.PI * 2);
+  ctx.arc(avatarX, avatarY, avatarR + 6, 0, Math.PI * 2);
   ctx.fill();
 
+  // Avatar gradient
   const avatarGrad = ctx.createLinearGradient(
     avatarX - avatarR, avatarY - avatarR,
     avatarX + avatarR, avatarY + avatarR
   );
   avatarGrad.addColorStop(0, gsuBlue);
-  avatarGrad.addColorStop(1, style === "milestone" ? gsuRed : "#0050d4");
+  avatarGrad.addColorStop(1, style === "milestone" ? gsuRed : "#0060e0");
   ctx.fillStyle = avatarGrad;
   ctx.beginPath();
   ctx.arc(avatarX, avatarY, avatarR, 0, Math.PI * 2);
   ctx.fill();
 
   // Initials
-  const initials = name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
   ctx.fillStyle = "#fff";
-  ctx.font = "bold 30px system-ui, -apple-system, sans-serif";
+  ctx.font = "bold 34px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(initials, avatarX, avatarY + 11);
+  ctx.fillText(initials, avatarX, avatarY + 12);
   ctx.textAlign = "left";
 
-  // Name + info
+  // Name
+  const nameX = avatarX + avatarR + 28;
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 32px system-ui, -apple-system, sans-serif";
-  ctx.fillText(truncText(ctx, name, 600), 140, 148);
+  ctx.font = "bold 38px system-ui, -apple-system, sans-serif";
+  ctx.fillText(truncText(ctx, name, 550), nameX, avatarY - 6);
 
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
-  ctx.font = "16px system-ui, -apple-system, sans-serif";
-  const subtitle = [major, year].filter(Boolean).join(" • ");
-  if (subtitle) ctx.fillText(subtitle, 140, 176);
-
-  /* ── Stats grid ── */
-  const statsY = 220;
-  const statBoxW = 160;
-  const statBoxH = 90;
-  const statGap = 16;
-  const statsX = 48;
-
-  const statItems = [
-    { value: String(data.stats.totalSessions), label: "Sessions", icon: "📚" },
-    { value: `${data.stats.totalHours}h`, label: "Hours", icon: "⏱️" },
-    {
-      value: data.stats.avgRating ? `${data.stats.avgRating} ⭐` : "N/A",
-      label: "Rating",
-      icon: "",
-    },
-    { value: String(data.stats.connectionCount), label: "Connections", icon: "🤝" },
-  ];
-
-  statItems.forEach((stat, i) => {
-    const sx = statsX + i * (statBoxW + statGap);
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    roundRect(ctx, sx, statsY, statBoxW, statBoxH, 12);
-    ctx.fill();
-
-    // add subtle border
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
-    ctx.lineWidth = 1;
-    roundRect(ctx, sx, statsY, statBoxW, statBoxH, 12);
-    ctx.stroke();
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(stat.icon ? `${stat.icon} ${stat.value}` : stat.value, sx + statBoxW / 2, statsY + 40);
-
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.font = "13px system-ui, -apple-system, sans-serif";
-    ctx.fillText(stat.label, sx + statBoxW / 2, statsY + 65);
-    ctx.textAlign = "left";
-  });
-
-  /* ── Badges row ── */
-  const earnedBadges = BADGES.filter((b) => data.earnedBadgeIds.includes(b.id));
-  if (earnedBadges.length > 0) {
-    const badgesY = statsY + statBoxH + 30;
-
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.font = "bold 13px system-ui, -apple-system, sans-serif";
-    ctx.fillText("BADGES EARNED", statsX, badgesY);
-
-    const maxBadges = Math.min(earnedBadges.length, 8);
-    const badgeSize = 48;
-    const badgeGap = 12;
-
-    for (let i = 0; i < maxBadges; i++) {
-      const bx = statsX + i * (badgeSize + badgeGap);
-      const by = badgesY + 12;
-
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      roundRect(ctx, bx, by, badgeSize, badgeSize, 10);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.15)";
-      ctx.lineWidth = 1;
-      roundRect(ctx, bx, by, badgeSize, badgeSize, 10);
-      ctx.stroke();
-
-      ctx.font = "24px system-ui";
-      ctx.textAlign = "center";
-      ctx.fillText(earnedBadges[i].icon, bx + badgeSize / 2, by + badgeSize / 2 + 8);
-      ctx.textAlign = "left";
-    }
-    if (earnedBadges.length > 8) {
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
-      ctx.font = "14px system-ui";
-      ctx.fillText(
-        `+${earnedBadges.length - 8} more`,
-        statsX + 8 * (badgeSize + badgeGap) + 8,
-        badgesY + 12 + badgeSize / 2 + 5
-      );
-    }
+  // Subtitle: major • year
+  const subtitle = [major, year].filter(Boolean).join("  •  ");
+  if (subtitle) {
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = "18px system-ui, -apple-system, sans-serif";
+    ctx.fillText(subtitle, nameX, avatarY + 22);
   }
 
-  /* ── Skills column (right side) ── */
-  if (data.strengths.length > 0) {
-    const skillsX = W - 380;
-    const skillsY = statsY;
-
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.font = "bold 13px system-ui, -apple-system, sans-serif";
-    ctx.fillText("SKILLS & EXPERTISE", skillsX, skillsY);
-
-    ctx.font = "15px system-ui, -apple-system, sans-serif";
-    data.strengths.slice(0, 6).forEach((skill, i) => {
-      const sy = skillsY + 22 + i * 32;
-      const pillW = Math.min(ctx.measureText(skill).width + 28, 320);
-
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      roundRect(ctx, skillsX, sy, pillW, 26, 13);
-      ctx.fill();
-
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.fillText(skill, skillsX + 14, sy + 18);
-    });
-  }
-
-  /* ── Footer ── */
-  const footY = H - 48;
-
-  // Bottom accent
-  const grad3 = ctx.createLinearGradient(0, 0, W, 0);
-  grad3.addColorStop(0, gsuBlue);
-  grad3.addColorStop(1, gsuRed);
-  ctx.fillStyle = grad3;
-  ctx.fillRect(0, H - 4, W, 4);
-
-  ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.font = "13px system-ui, -apple-system, sans-serif";
-  ctx.fillText("panthertutor.vercel.app", 48, footY);
-
-  // Timestamp
-  ctx.textAlign = "right";
-  ctx.fillText(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }), W - 48, footY);
-  ctx.textAlign = "left";
-
-  /* ── Role badge ── */
+  // Role badge (right-aligned with the name row)
   const roleBadge =
     data.stats.tutorSessions > 0 && data.stats.studentSessions > 0
       ? "Tutor & Student"
       : data.stats.tutorSessions > 0
       ? "Peer Tutor"
       : "Student";
+  const roleText = `🎓  ${roleBadge}`;
+  ctx.font = "bold 16px system-ui, -apple-system, sans-serif";
+  const roleW = ctx.measureText(roleText).width + 32;
+  const roleX = W - padX - roleW;
+  const roleY = avatarY - 16;
 
-  const roleX = W - 380;
-  const roleY = 140;
-  const roleText = `🎓 ${roleBadge}`;
-  ctx.font = "bold 14px system-ui, -apple-system, sans-serif";
-  const roleW = ctx.measureText(roleText).width + 24;
-
-  ctx.fillStyle = "rgba(255,255,255,0.1)";
-  roundRect(ctx, roleX, roleY - 16, roleW, 28, 14);
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  roundRect(ctx, roleX, roleY, roleW, 34, 17);
   ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
-  ctx.fillText(roleText, roleX + 12, roleY + 4);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, roleX, roleY, roleW, 34, 17);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText(roleText, roleX + 16, roleY + 23);
+
+  /* ═══ Stats row — centered, spacious ═══ */
+  const statsY = 240;
+  const statCount = 4;
+  const statBoxW = 220;
+  const statBoxH = 110;
+  const totalStatsW = statCount * statBoxW + (statCount - 1) * 24;
+  const statsX = (W - totalStatsW) / 2;
+  const statGap = 24;
+
+  const statItems = [
+    { value: String(data.stats.totalSessions), label: "Sessions Completed", icon: "📚" },
+    { value: `${data.stats.totalHours}h`, label: "Hours Logged", icon: "⏱️" },
+    {
+      value: data.stats.avgRating ? `${data.stats.avgRating}` : "—",
+      label: data.stats.avgRating ? `Rating  (${data.stats.reviewCount} reviews)` : "No Ratings Yet",
+      icon: data.stats.avgRating ? "⭐" : "⭐",
+    },
+    { value: String(data.stats.connectionCount), label: "Connections", icon: "🤝" },
+  ];
+
+  statItems.forEach((stat, i) => {
+    const sx = statsX + i * (statBoxW + statGap);
+
+    // Card background
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    roundRect(ctx, sx, statsY, statBoxW, statBoxH, 16);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, sx, statsY, statBoxW, statBoxH, 16);
+    ctx.stroke();
+
+    // Icon + value
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 36px system-ui, -apple-system, sans-serif";
+    const display = stat.icon ? `${stat.icon}  ${stat.value}` : stat.value;
+    ctx.fillText(display, sx + statBoxW / 2, statsY + 48);
+
+    // Label
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.font = "14px system-ui, -apple-system, sans-serif";
+    ctx.fillText(stat.label, sx + statBoxW / 2, statsY + 78);
+    ctx.textAlign = "left";
+  });
+
+  /* ═══ Bottom section: Badges (left) + Skills (right) ═══ */
+  const bottomY = statsY + statBoxH + 40;
+  const earnedBadges = BADGES.filter((b) => data.earnedBadgeIds.includes(b.id));
+  const hasSkills = data.strengths.length > 0;
+  const hasBadges = earnedBadges.length > 0;
+
+  // Section label style
+  const drawSectionLabel = (text: string, x: number, y: number) => {
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.font = "bold 12px system-ui, -apple-system, sans-serif";
+    ctx.letterSpacing = "1px";
+    ctx.fillText(text, x, y);
+    ctx.letterSpacing = "0px";
+  };
+
+  if (hasBadges) {
+    drawSectionLabel("BADGES EARNED", padX, bottomY);
+
+    const maxBadges = Math.min(earnedBadges.length, 10);
+    const badgeSize = 56;
+    const badgeGap = 14;
+
+    for (let i = 0; i < maxBadges; i++) {
+      const bx = padX + i * (badgeSize + badgeGap);
+      const by = bottomY + 14;
+
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      roundRect(ctx, bx, by, badgeSize, badgeSize, 14);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      ctx.lineWidth = 1;
+      roundRect(ctx, bx, by, badgeSize, badgeSize, 14);
+      ctx.stroke();
+
+      ctx.font = "28px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(earnedBadges[i].icon, bx + badgeSize / 2, by + badgeSize / 2 + 10);
+      ctx.textAlign = "left";
+    }
+
+    // Badge name below each icon
+    ctx.font = "10px system-ui, -apple-system, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.textAlign = "center";
+    for (let i = 0; i < Math.min(maxBadges, 6); i++) {
+      const bx = padX + i * (badgeSize + badgeGap);
+      ctx.fillText(
+        truncText(ctx, earnedBadges[i].name, badgeSize + 4),
+        bx + badgeSize / 2,
+        bottomY + 14 + badgeSize + 14
+      );
+    }
+    ctx.textAlign = "left";
+
+    if (earnedBadges.length > maxBadges) {
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.font = "bold 15px system-ui";
+      ctx.fillText(
+        `+${earnedBadges.length - maxBadges} more`,
+        padX + maxBadges * (badgeSize + badgeGap) + 8,
+        bottomY + 14 + badgeSize / 2 + 6
+      );
+    }
+  }
+
+  if (hasSkills) {
+    const skillsX = hasBadges ? W - 400 : padX;
+    drawSectionLabel("SKILLS & EXPERTISE", skillsX, bottomY);
+
+    ctx.font = "16px system-ui, -apple-system, sans-serif";
+    data.strengths.slice(0, 4).forEach((skill, i) => {
+      const sy = bottomY + 16 + i * 38;
+      const pillW = Math.min(ctx.measureText(skill).width + 36, 340);
+
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      roundRect(ctx, skillsX, sy, pillW, 30, 15);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1;
+      roundRect(ctx, skillsX, sy, pillW, 30, 15);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.fillText(skill, skillsX + 18, sy + 21);
+    });
+  }
+
+  /* ═══ Footer ═══ */
+  const footY = H - 32;
+  ctx.fillStyle = "rgba(255,255,255,0.3)";
+  ctx.font = "14px system-ui, -apple-system, sans-serif";
+  ctx.fillText("panthertutor.vercel.app", padX, footY);
+
+  ctx.textAlign = "right";
+  ctx.fillText(new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" }), W - padX, footY);
+  ctx.textAlign = "left";
 }
 
 /* ══════════════════════════════════════
