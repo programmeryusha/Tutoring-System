@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
+import AccessibilityPanel from "@/components/AccessibilityPanel";
 
 export const metadata: Metadata = {
   title: "PantherTutor | GSU P2P Tutoring Platform",
@@ -23,8 +24,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <AuthProvider>
+            <a href="#main-content" className="skip-to-content">
+              Skip to Content
+            </a>
             <Navbar />
-            <main style={{ paddingTop: 64 }}>{children}</main>
+            <main id="main-content" style={{ paddingTop: 64 }}>{children}</main>
+            <AccessibilityPanel />
           </AuthProvider>
         </ThemeProvider>
       </body>
