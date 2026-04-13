@@ -87,23 +87,7 @@ export default function ChatWidget() {
     }
   }, [open]);
 
-  // Click outside to close
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(target) &&
-        bubbleRef.current &&
-        !bubbleRef.current.contains(target)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  // (click-outside handled via overlay div below)
 
   // Greeting message when first opened
   useEffect(() => {
@@ -160,6 +144,19 @@ export default function ChatWidget() {
 
   return (
     <>
+      {/* ── Click-outside overlay ── */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9997,
+            background: "transparent",
+          }}
+        />
+      )}
+
       {/* ── Floating Button ── */}
       <button
         ref={bubbleRef}
