@@ -47,6 +47,18 @@ interface SkillRow {
   skills: { name: string } | null;
 }
 
+interface PracticeProblem {
+  question: string;
+  options: string[];
+  hint: string;
+  answer: string;
+  explanation: string;
+  subject: string;
+  difficulty: string;
+}
+
+type PageTab = "analytics" | "practice";
+
 /* ═══════════ Scroll animation ═══════════ */
 function useScrollReveal() {
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -147,6 +159,18 @@ export default function ProgressPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("90d");
   const [groupBy, setGroupBy] = useState<"week" | "month">("week");
 
+  /* Practice tab state */
+  const [activeTab, setActiveTab] = useState<PageTab>("analytics");
+  const [practiceSubject, setPracticeSubject] = useState<string>("");
+  const [practiceDifficulty, setPracticeDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [practiceLoading, setPracticeLoading] = useState(false);
+  const [currentProblem, setCurrentProblem] = useState<PracticeProblem | null>(null);
+  const [practiceAnswer, setPracticeAnswer] = useState<string | null>(null);
+  const [practiceShowHint, setPracticeShowHint] = useState(false);
+  const [practiceShowExplanation, setPracticeShowExplanation] = useState(false);
+  const [practiceHistory, setPracticeHistory] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
+  const [allSubjects, setAllSubjects] = useState<string[]>([]);
+
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
@@ -187,11 +211,54 @@ export default function ProgressPage() {
       setReviews(revRes.data || []);
       setReviewsGivenCount(revGivenRes.count || 0);
       setSkills((skillRes.data as unknown as SkillRow[]) || []);
+
+      // Populate subject list for practice tab
+      const skillNames = ((skillRes.data as unknown as SkillRow[]) || [])
+        .map((s) => s.skills?.name)
+        .filter(Boolean) as string[];
+      setAllSubjects(skillNames.length > 0 ? skillNames : ["General Computer Science"]);
+
       setLoadingData(false);
     }
 
     fetchAll();
   }, [user]);
+
+  /* ── Generate practice problem ── */
+  async function generateProblem() {
+    if (!user) return;
+    setPracticeLoading(true);
+    setPracticeAnswer(null);
+    setPracticeShowHint(false);
+    setPracticeShowExplanation(false);
+
+    try {
+      const res = await fetch("/api/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          subject: practiceSubject || undefined,
+          difficulty: practiceDifficulty,
+          mode: "practice",
+        }),
+      });
+      const data = await res.json();
+      if (!data.error) {
+        setCurrentProblem(data);
+      }
+    } catch { /* ignore */ }
+    finally { setPracticeLoading(false); }
+  }
+
+  function handlePracticeAnswer(letter: string) {
+    setPracticeAnswer(letter);
+    setPracticeShowExplanation(true);
+    setPracticeHistory((prev) => ({
+      correct: prev.correct + (letter === currentProblem?.answer ? 1 : 0),
+      total: prev.total + 1,
+    }));
+  }
 
   /* ── Derived data (filtered by time range) ── */
   const filtered = useMemo(() => {
@@ -429,14 +496,53 @@ export default function ProgressPage() {
         {/* ── Header ── */}
         <div ref={observe} className="animate-on-scroll" style={{ marginBottom: "1.5rem" }}>
           <h1 style={{ fontSize: "clamp(1.5rem, 3vw, 2.25rem)", fontWeight: 800, marginBottom: "0.25rem" }}>
-            📊 <span className="gradient-text-animated">Progress Tracker</span>
+            {activeTab === "analytics" ? "📊" : "🎯"} <span className="gradient-text-animated">{activeTab === "analytics" ? "Progress Tracker" : "Practice Problems"}</span>
           </h1>
           <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "1.05rem" }}>
-            Track your tutoring journey, see trends, and earn milestones.
+            {activeTab === "analytics"
+              ? "Track your tutoring journey, see trends, and earn milestones."
+              : "Sharpen your skills with AI-generated practice problems."}
           </p>
         </div>
 
+        {/* ── Tab Toggle ── */}
+        <div
+          ref={observe}
+          className="animate-on-scroll"
+          style={{
+            display: "flex",
+            gap: "0.25rem",
+            background: "var(--bg-secondary)",
+            borderRadius: "var(--radius-md)",
+            padding: "0.25rem",
+            marginBottom: "1.5rem",
+            width: "fit-content",
+          }}
+        >
+          {([["analytics", "📊 Analytics"], ["practice", "🎯 Practice"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              style={{
+                padding: "0.5rem 1.25rem",
+                borderRadius: "var(--radius-sm)",
+                border: "none",
+                fontWeight: 700,
+                fontSize: "0.9rem",
+                cursor: "pointer",
+                background: activeTab === key ? "var(--gsu-blue)" : "transparent",
+                color: activeTab === key ? "#fff" : "var(--text-muted)",
+                transition: "var(--transition)",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* ── Time Range & Group By ── */}
+        {activeTab === "analytics" && (
+        <>
         <div
           ref={observe}
           className="animate-on-scroll"
@@ -804,6 +910,291 @@ export default function ProgressPage() {
                 ))}
               </div>
             </div>
+          </>
+        )}
+        </>
+        )}
+
+        {/* ═══════════ Practice Tab ═══════════ */}
+        {activeTab === "practice" && (
+          <>
+            {/* ── Controls ── */}
+            <div ref={observe} className="animate-on-scroll card" style={{ cursor: "default", marginBottom: "1.5rem" }}>
+              <h3 style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: "1rem" }}>
+                Generate a Problem
+              </h3>
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+                {/* Subject selector */}
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "0.35rem" }}>
+                    Subject
+                  </label>
+                  <select
+                    value={practiceSubject}
+                    onChange={(e) => setPracticeSubject(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "0.55rem 0.75rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border-color)",
+                      background: "var(--bg-secondary)",
+                      color: "var(--text-primary)",
+                      fontSize: "0.9rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="">Random (from my skills)</option>
+                    {allSubjects.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Difficulty selector */}
+                <div style={{ minWidth: 160 }}>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "0.35rem" }}>
+                    Difficulty
+                  </label>
+                  <div style={{ display: "flex", gap: "0.25rem", background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", padding: "0.25rem" }}>
+                    {(["easy", "medium", "hard"] as const).map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setPracticeDifficulty(d)}
+                        style={{
+                          flex: 1,
+                          padding: "0.4rem 0.5rem",
+                          borderRadius: "var(--radius-sm)",
+                          border: "none",
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          textTransform: "capitalize",
+                          background: practiceDifficulty === d
+                            ? d === "easy" ? "#16a34a" : d === "hard" ? "#dc2626" : "var(--gsu-blue)"
+                            : "transparent",
+                          color: practiceDifficulty === d ? "#fff" : "var(--text-muted)",
+                          transition: "var(--transition)",
+                        }}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Generate button */}
+                <button
+                  onClick={generateProblem}
+                  disabled={practiceLoading}
+                  style={{
+                    padding: "0.55rem 1.5rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "none",
+                    background: "var(--gsu-blue)",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: "0.9rem",
+                    cursor: practiceLoading ? "not-allowed" : "pointer",
+                    opacity: practiceLoading ? 0.7 : 1,
+                    transition: "var(--transition)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {practiceLoading ? "Generating..." : "🎲 Generate"}
+                </button>
+              </div>
+
+              {/* Session score */}
+              {practiceHistory.total > 0 && (
+                <div style={{ marginTop: "1rem", padding: "0.5rem 0.75rem", background: "var(--bg-secondary)", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "0.85rem" }}>
+                  <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+                    Session Score: {practiceHistory.correct}/{practiceHistory.total}
+                  </span>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    ({Math.round((practiceHistory.correct / practiceHistory.total) * 100)}%)
+                  </span>
+                  <div style={{ flex: 1, height: 6, background: "var(--border-color)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{
+                      width: `${(practiceHistory.correct / practiceHistory.total) * 100}%`,
+                      height: "100%",
+                      background: practiceHistory.correct / practiceHistory.total >= 0.7 ? "#16a34a" : practiceHistory.correct / practiceHistory.total >= 0.4 ? "#f59e0b" : "#dc2626",
+                      borderRadius: 3,
+                      transition: "width 0.5s ease",
+                    }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Loading ── */}
+            {practiceLoading && (
+              <div className="card" style={{ padding: "3rem", textAlign: "center" }}>
+                <div className="animate-spin" style={{ width: 40, height: 40, border: "3px solid var(--border-color)", borderTopColor: "var(--gsu-blue)", borderRadius: "50%", margin: "0 auto 1rem" }} />
+                <div style={{ color: "var(--text-muted)" }}>Generating your practice problem...</div>
+              </div>
+            )}
+
+            {/* ── Empty state ── */}
+            {!practiceLoading && !currentProblem && (
+              <div ref={observe} className="animate-on-scroll card" style={{ textAlign: "center", padding: "4rem 2rem", cursor: "default" }}>
+                <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🎯</div>
+                <h2 style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Ready to practice?</h2>
+                <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem", maxWidth: 400, margin: "0 auto 1.5rem" }}>
+                  Pick a subject and difficulty above, then hit Generate to get an AI-powered practice problem tailored to your courses.
+                </p>
+              </div>
+            )}
+
+            {/* ── Problem display ── */}
+            {!practiceLoading && currentProblem && (
+              <div ref={observe} className="animate-on-scroll card" style={{ cursor: "default", borderLeft: "4px solid var(--gsu-blue)" }}>
+                {/* Subject & difficulty badges */}
+                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                  <span className="badge badge-blue" style={{ fontSize: "0.75rem" }}>{currentProblem.subject}</span>
+                  <span className="badge" style={{
+                    fontSize: "0.75rem",
+                    background: currentProblem.difficulty === "easy" ? "#dcfce7" : currentProblem.difficulty === "hard" ? "#fecaca" : "#fef9c3",
+                    color: currentProblem.difficulty === "easy" ? "#16a34a" : currentProblem.difficulty === "hard" ? "#dc2626" : "#a16207",
+                  }}>
+                    {currentProblem.difficulty}
+                  </span>
+                  {practiceAnswer && (
+                    <span className="badge" style={{
+                      fontSize: "0.75rem",
+                      background: practiceAnswer === currentProblem.answer ? "#dcfce7" : "#fecaca",
+                      color: practiceAnswer === currentProblem.answer ? "#16a34a" : "#dc2626",
+                    }}>
+                      {practiceAnswer === currentProblem.answer ? "✅ Correct" : "❌ Incorrect"}
+                    </span>
+                  )}
+                </div>
+
+                {/* Question */}
+                <p style={{ fontWeight: 600, fontSize: "1.05rem", marginBottom: "1.25rem", lineHeight: 1.55, color: "var(--text-primary)" }}>
+                  {currentProblem.question}
+                </p>
+
+                {/* Options */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.25rem" }}>
+                  {currentProblem.options.map((opt, i) => {
+                    const letter = opt.charAt(0);
+                    const isSelected = practiceAnswer === letter;
+                    const isCorrect = letter === currentProblem.answer;
+                    const answered = practiceAnswer !== null;
+
+                    let bg = "var(--bg-secondary)";
+                    let border = "1px solid var(--border-color)";
+                    let color = "var(--text-primary)";
+
+                    if (answered) {
+                      if (isCorrect) {
+                        bg = "#dcfce7"; border = "1px solid #16a34a"; color = "#16a34a";
+                      } else if (isSelected && !isCorrect) {
+                        bg = "#fecaca"; border = "1px solid #dc2626"; color = "#dc2626";
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => !answered && handlePracticeAnswer(letter)}
+                        disabled={answered}
+                        style={{
+                          padding: "0.7rem 1rem",
+                          borderRadius: "var(--radius-md)",
+                          background: bg,
+                          border,
+                          color,
+                          fontWeight: isSelected ? 700 : 500,
+                          fontSize: "0.9rem",
+                          textAlign: "left",
+                          cursor: answered ? "default" : "pointer",
+                          transition: "var(--transition)",
+                          opacity: answered && !isSelected && !isCorrect ? 0.5 : 1,
+                        }}
+                      >
+                        {opt}
+                        {answered && isCorrect && " ✓"}
+                        {answered && isSelected && !isCorrect && " ✗"}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Action buttons */}
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                  {!practiceAnswer && (
+                    <button
+                      onClick={() => setPracticeShowHint((p) => !p)}
+                      style={{
+                        padding: "0.4rem 0.85rem",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--border-color)",
+                        background: practiceShowHint ? "rgba(245, 158, 11, 0.1)" : "var(--bg-secondary)",
+                        color: practiceShowHint ? "#f59e0b" : "var(--text-muted)",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                        transition: "var(--transition)",
+                      }}
+                    >
+                      💡 {practiceShowHint ? "Hide Hint" : "Show Hint"}
+                    </button>
+                  )}
+                  {practiceAnswer && (
+                    <button
+                      onClick={generateProblem}
+                      style={{
+                        padding: "0.4rem 0.85rem",
+                        borderRadius: "var(--radius-sm)",
+                        border: "none",
+                        background: "var(--gsu-blue)",
+                        color: "#fff",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                        transition: "var(--transition)",
+                      }}
+                    >
+                      🎲 Next Problem
+                    </button>
+                  )}
+                </div>
+
+                {/* Hint */}
+                {practiceShowHint && !practiceAnswer && (
+                  <div style={{
+                    marginTop: "0.75rem",
+                    padding: "0.75rem",
+                    borderRadius: "var(--radius-md)",
+                    background: "rgba(245, 158, 11, 0.08)",
+                    border: "1px solid rgba(245, 158, 11, 0.2)",
+                    fontSize: "0.9rem",
+                    color: "#a16207",
+                  }}>
+                    💡 {currentProblem.hint}
+                  </div>
+                )}
+
+                {/* Explanation */}
+                {practiceShowExplanation && (
+                  <div style={{
+                    marginTop: "0.75rem",
+                    padding: "0.75rem",
+                    borderRadius: "var(--radius-md)",
+                    background: practiceAnswer === currentProblem.answer ? "rgba(22, 163, 74, 0.08)" : "rgba(220, 38, 38, 0.08)",
+                    border: `1px solid ${practiceAnswer === currentProblem.answer ? "rgba(22, 163, 74, 0.2)" : "rgba(220, 38, 38, 0.2)"}`,
+                    fontSize: "0.9rem",
+                    color: "var(--text-primary)",
+                  }}>
+                    <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>
+                      {practiceAnswer === currentProblem.answer ? "✅ Correct!" : `❌ The correct answer is ${currentProblem.answer}`}
+                    </div>
+                    {currentProblem.explanation}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

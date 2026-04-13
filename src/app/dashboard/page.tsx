@@ -5,6 +5,17 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
+/* ── Daily Challenge types ── */
+interface DailyChallenge {
+  question: string;
+  options: string[];
+  hint: string;
+  answer: string;
+  explanation: string;
+  subject: string;
+  difficulty: string;
+}
+
 /* ── Types ── */
 interface Profile {
   full_name: string | null;
@@ -70,6 +81,14 @@ export default function DashboardPage() {
   const [avgStudentRating, setAvgStudentRating] = useState<number | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [loadingData, setLoadingData] = useState(true);
+
+  /* Daily Challenge state */
+  const [challenge, setChallenge] = useState<DailyChallenge | null>(null);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [showHint, setShowHint] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [challengeCollapsed, setChallengeCollapsed] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -200,6 +219,54 @@ export default function DashboardPage() {
 
     fetchData();
   }, [user]);
+
+  /* ── Fetch daily challenge ── */
+  useEffect(() => {
+    if (!user) return;
+
+    // Check if already answered today (stored in localStorage)
+    const todayKey = `daily-challenge-${new Date().toISOString().slice(0, 10)}`;
+    const cached = localStorage.getItem(todayKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setChallenge(parsed.challenge);
+        setSelectedAnswer(parsed.selectedAnswer || null);
+        setShowExplanation(parsed.showExplanation || false);
+      } catch { /* ignore */ }
+      return;
+    }
+
+    setChallengeLoading(true);
+    fetch("/api/practice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: user.id, mode: "daily", difficulty: "medium" }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) {
+          setChallenge(data);
+          localStorage.setItem(todayKey, JSON.stringify({ challenge: data }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChallengeLoading(false));
+  }, [user]);
+
+  /* Save answer state to localStorage */
+  function handleChallengeAnswer(letter: string) {
+    setSelectedAnswer(letter);
+    setShowExplanation(true);
+    const todayKey = `daily-challenge-${new Date().toISOString().slice(0, 10)}`;
+    const cached = localStorage.getItem(todayKey);
+    try {
+      const parsed = cached ? JSON.parse(cached) : {};
+      parsed.selectedAnswer = letter;
+      parsed.showExplanation = true;
+      localStorage.setItem(todayKey, JSON.stringify(parsed));
+    } catch { /* ignore */ }
+  }
 
   if (loading || !user) {
     return (
@@ -777,6 +844,176 @@ export default function DashboardPage() {
                 </Link>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ═══ Daily Challenge ═══ */}
+        {!loadingData && (challenge || challengeLoading) && (
+          <div ref={observe} className="animate-on-scroll" style={{ marginTop: "2rem" }}>
+            <div
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", cursor: "pointer" }}
+              onClick={() => setChallengeCollapsed((p) => !p)}
+            >
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>
+                🎯 Daily Challenge
+              </h3>
+              <span style={{ fontSize: "1.2rem", color: "var(--text-muted)", transition: "transform 0.2s", transform: challengeCollapsed ? "rotate(-90deg)" : "rotate(0)" }}>
+                ▾
+              </span>
+            </div>
+
+            {!challengeCollapsed && (
+              challengeLoading ? (
+                <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
+                  <div className="animate-spin" style={{ width: 32, height: 32, border: "3px solid var(--border-color)", borderTopColor: "var(--gsu-blue)", borderRadius: "50%", margin: "0 auto 0.75rem" }} />
+                  <div style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Generating today&apos;s challenge...</div>
+                </div>
+              ) : challenge ? (
+                <div className="card" style={{ cursor: "default", borderLeft: "4px solid #f59e0b" }}>
+                  {/* Subject & difficulty badges */}
+                  <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                    <span className="badge badge-blue" style={{ fontSize: "0.75rem" }}>{challenge.subject}</span>
+                    <span className="badge" style={{
+                      fontSize: "0.75rem",
+                      background: challenge.difficulty === "easy" ? "#dcfce7" : challenge.difficulty === "hard" ? "#fecaca" : "#fef9c3",
+                      color: challenge.difficulty === "easy" ? "#16a34a" : challenge.difficulty === "hard" ? "#dc2626" : "#a16207",
+                    }}>
+                      {challenge.difficulty}
+                    </span>
+                  </div>
+
+                  {/* Question */}
+                  <p style={{ fontWeight: 600, fontSize: "1rem", marginBottom: "1rem", lineHeight: 1.5, color: "var(--text-primary)" }}>
+                    {challenge.question}
+                  </p>
+
+                  {/* Options */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
+                    {challenge.options.map((opt, i) => {
+                      const letter = opt.charAt(0);
+                      const isSelected = selectedAnswer === letter;
+                      const isCorrect = letter === challenge.answer;
+                      const answered = selectedAnswer !== null;
+
+                      let bg = "var(--bg-secondary)";
+                      let border = "1px solid var(--border-color)";
+                      let color = "var(--text-primary)";
+
+                      if (answered) {
+                        if (isCorrect) {
+                          bg = "#dcfce7";
+                          border = "1px solid #16a34a";
+                          color = "#16a34a";
+                        } else if (isSelected && !isCorrect) {
+                          bg = "#fecaca";
+                          border = "1px solid #dc2626";
+                          color = "#dc2626";
+                        }
+                      } else if (isSelected) {
+                        bg = "rgba(0, 57, 166, 0.1)";
+                        border = "1px solid var(--gsu-blue)";
+                      }
+
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => !answered && handleChallengeAnswer(letter)}
+                          disabled={answered}
+                          style={{
+                            padding: "0.65rem 1rem",
+                            borderRadius: "var(--radius-md)",
+                            background: bg,
+                            border,
+                            color,
+                            fontWeight: isSelected ? 700 : 500,
+                            fontSize: "0.9rem",
+                            textAlign: "left",
+                            cursor: answered ? "default" : "pointer",
+                            transition: "var(--transition)",
+                            opacity: answered && !isSelected && !isCorrect ? 0.5 : 1,
+                          }}
+                        >
+                          {opt}
+                          {answered && isCorrect && " ✓"}
+                          {answered && isSelected && !isCorrect && " ✗"}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Hint & Explanation buttons */}
+                  <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                    {!selectedAnswer && (
+                      <button
+                        onClick={() => setShowHint((p) => !p)}
+                        style={{
+                          padding: "0.4rem 0.85rem",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid var(--border-color)",
+                          background: showHint ? "rgba(245, 158, 11, 0.1)" : "var(--bg-secondary)",
+                          color: showHint ? "#f59e0b" : "var(--text-muted)",
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          transition: "var(--transition)",
+                        }}
+                      >
+                        💡 {showHint ? "Hide Hint" : "Show Hint"}
+                      </button>
+                    )}
+                    <Link
+                      href="/progress"
+                      style={{
+                        padding: "0.4rem 0.85rem",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--border-color)",
+                        background: "var(--bg-secondary)",
+                        color: "var(--text-muted)",
+                        fontWeight: 600,
+                        fontSize: "0.8rem",
+                        textDecoration: "none",
+                        transition: "var(--transition)",
+                      }}
+                    >
+                      🎯 More Practice →
+                    </Link>
+                  </div>
+
+                  {/* Hint text */}
+                  {showHint && !selectedAnswer && (
+                    <div style={{
+                      marginTop: "0.75rem",
+                      padding: "0.75rem",
+                      borderRadius: "var(--radius-md)",
+                      background: "rgba(245, 158, 11, 0.08)",
+                      border: "1px solid rgba(245, 158, 11, 0.2)",
+                      fontSize: "0.9rem",
+                      color: "#a16207",
+                    }}>
+                      💡 {challenge.hint}
+                    </div>
+                  )}
+
+                  {/* Explanation after answering */}
+                  {showExplanation && (
+                    <div style={{
+                      marginTop: "0.75rem",
+                      padding: "0.75rem",
+                      borderRadius: "var(--radius-md)",
+                      background: selectedAnswer === challenge.answer ? "rgba(22, 163, 74, 0.08)" : "rgba(220, 38, 38, 0.08)",
+                      border: `1px solid ${selectedAnswer === challenge.answer ? "rgba(22, 163, 74, 0.2)" : "rgba(220, 38, 38, 0.2)"}`,
+                      fontSize: "0.9rem",
+                      color: "var(--text-primary)",
+                    }}>
+                      <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>
+                        {selectedAnswer === challenge.answer ? "✅ Correct!" : `❌ The correct answer is ${challenge.answer}`}
+                      </div>
+                      {challenge.explanation}
+                    </div>
+                  )}
+                </div>
+              ) : null
+            )}
           </div>
         )}
       </div>
