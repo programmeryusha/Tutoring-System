@@ -1,10 +1,11 @@
 "use client";
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
+/* ── Types ── */
 interface Profile {
   full_name: string | null;
   bio: string | null;
@@ -12,36 +13,75 @@ interface Profile {
   year: string | null;
 }
 
-interface Session {
+interface UpcomingSession {
   id: string;
-  subject: string;
+  subject: string | null;
   scheduled_at: string;
+  duration_minutes: number;
   status: string;
-  tutor_id: string;
-  student_id: string;
-  tutor_profile?: { full_name: string };
-  student_profile?: { full_name: string };
+  user1_id: string;
+  user2_id: string;
+  other_name?: string;
+  role?: string;
+}
+
+/* ── Scroll-triggered animation hook ── */
+function useScrollReveal() {
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const observe = useCallback((el: HTMLElement | null) => {
+    if (!el) return;
+    if (!observerRef.current) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("animate-visible");
+              observerRef.current?.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+      );
+    }
+    observerRef.current.observe(el);
+  }, []);
+
+  useEffect(() => {
+    return () => observerRef.current?.disconnect();
+  }, []);
+
+  return observe;
 }
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const observe = useScrollReveal();
+
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<UpcomingSession[]>([]);
   const [skillCount, setSkillCount] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
+  const [connectionsCount, setConnectionsCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [totalHours, setTotalHours] = useState(0);
+  const [avgTutorRating, setAvgTutorRating] = useState<number | null>(null);
+  const [avgStudentRating, setAvgStudentRating] = useState<number | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
+    if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
 
   useEffect(() => {
     if (!user) return;
 
     async function fetchData() {
-      // Fetch profile
+      setLoadingData(true);
+
+      // Profile
       const { data: prof } = await supabase
         .from("profiles")
         .select("full_name, bio, major, year")
@@ -49,29 +89,113 @@ export default function DashboardPage() {
         .single();
       setProfile(prof);
 
-      // Fetch upcoming sessions
-      const { data: sess } = await supabase
-        .from("sessions")
-        .select("id, subject, scheduled_at, status, tutor_id, student_id")
-        .or(`tutor_id.eq.${user!.id},student_id.eq.${user!.id}`)
-        .eq("status", "scheduled")
-        .order("scheduled_at", { ascending: true })
-        .limit(5);
-      setSessions(sess || []);
-
-      // Fetch skill count
+      // Skills count
       const { count: sc } = await supabase
         .from("user_skills")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user!.id);
       setSkillCount(sc || 0);
 
-      // Fetch match count
+      // Total matches (all statuses)
       const { count: mc } = await supabase
         .from("matches")
         .select("*", { count: "exact", head: true })
         .or(`user1_id.eq.${user!.id},user2_id.eq.${user!.id}`);
       setMatchCount(mc || 0);
+
+      // Accepted connections
+      const { count: cc } = await supabase
+        .from("matches")
+        .select("*", { count: "exact", head: true })
+        .or(`user1_id.eq.${user!.id},user2_id.eq.${user!.id}`)
+        .eq("status", "accepted");
+      setConnectionsCount(cc || 0);
+
+      // Completed sessions count + total hours
+      const { data: completedSess } = await supabase
+        .from("sessions")
+        .select("id, duration_minutes")
+        .or(`user1_id.eq.${user!.id},user2_id.eq.${user!.id}`)
+        .eq("status", "completed");
+      setCompletedCount(completedSess?.length || 0);
+      const mins = (completedSess || []).reduce(
+        (sum: number, s: any) => sum + (s.duration_minutes || 60),
+        0
+      );
+      setTotalHours(Math.round((mins / 60) * 10) / 10);
+
+      // Upcoming sessions (with partner names)
+      const { data: upSess } = await supabase
+        .from("sessions")
+        .select("id, subject, scheduled_at, duration_minutes, status, user1_id, user2_id")
+        .or(`user1_id.eq.${user!.id},user2_id.eq.${user!.id}`)
+        .eq("status", "scheduled")
+        .gte("scheduled_at", new Date().toISOString())
+        .order("scheduled_at", { ascending: true })
+        .limit(5);
+
+      if (upSess && upSess.length > 0) {
+        const otherIds = upSess.map((s: any) =>
+          s.user1_id === user!.id ? s.user2_id : s.user1_id
+        );
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", [...new Set(otherIds)]);
+        const nameMap = new Map(
+          (profs || []).map((p: any) => [p.id, p.full_name || "Panther Student"])
+        );
+
+        setSessions(
+          upSess.map((s: any) => {
+            const otherId = s.user1_id === user!.id ? s.user2_id : s.user1_id;
+            return {
+              ...s,
+              other_name: nameMap.get(otherId) || "Panther Student",
+              role: s.user1_id === user!.id ? "Tutoring" : "Learning from",
+            };
+          })
+        );
+      } else {
+        setSessions([]);
+      }
+
+      // Average ratings (split tutor/student)
+      const { data: revs } = await supabase
+        .from("reviews")
+        .select("rating, reviewee_role")
+        .eq("reviewee_id", user!.id);
+
+      if (revs && revs.length > 0) {
+        const tutorRevs = revs.filter((r: any) => r.reviewee_role === "tutor");
+        const studentRevs = revs.filter((r: any) => r.reviewee_role === "student");
+        if (tutorRevs.length > 0) {
+          setAvgTutorRating(
+            Math.round(
+              (tutorRevs.reduce((s: number, r: any) => s + r.rating, 0) / tutorRevs.length) * 10
+            ) / 10
+          );
+        }
+        if (studentRevs.length > 0) {
+          setAvgStudentRating(
+            Math.round(
+              (studentRevs.reduce((s: number, r: any) => s + r.rating, 0) / studentRevs.length) *
+                10
+            ) / 10
+          );
+        }
+      }
+
+      // Unread messages (rough: messages in last 24h where user is not the sender)
+      const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+      const { count: msgCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .neq("sender_id", user!.id)
+        .gte("created_at", oneDayAgo);
+      setUnreadMessages(msgCount || 0);
+
+      setLoadingData(false);
     }
 
     fetchData();
@@ -79,61 +203,101 @@ export default function DashboardPage() {
 
   if (loading || !user) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <div className="animate-spin" style={{
-          width: 40,
-          height: 40,
-          border: "3px solid var(--border-color)",
-          borderTopColor: "var(--gsu-blue)",
-          borderRadius: "50%",
-        }} />
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          className="animate-spin"
+          style={{
+            width: 40,
+            height: 40,
+            border: "3px solid var(--border-color)",
+            borderTopColor: "var(--gsu-blue)",
+            borderRadius: "50%",
+          }}
+        />
       </div>
     );
   }
 
-  const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Student";
+  const displayName =
+    profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Student";
   const greeting = getGreeting();
 
-  const quickActions = [
-    { href: "/profile", icon: "👤", title: "Edit Profile", desc: "Update skills & info", color: "var(--gsu-blue)" },
-    { href: "/matches", icon: "🤝", title: "Find Matches", desc: "AI-powered matching", color: "var(--gsu-red)" },
-    { href: "/sessions", icon: "📅", title: "Book Session", desc: "Schedule tutoring", color: "#16a34a" },
-    { href: "/about", icon: "ℹ️", title: "About", desc: "Meet the team", color: "#8b5cf6" },
+  const statCards = [
+    { value: completedCount, label: "Sessions Done", icon: "✅", color: "#16a34a" },
+    { value: `${totalHours}h`, label: "Hours Logged", icon: "⏱️", color: "var(--gsu-blue)" },
+    { value: connectionsCount, label: "Connections", icon: "🤝", color: "#8b5cf6" },
+    { value: skillCount, label: "Skills Added", icon: "🎯", color: "var(--gsu-red)" },
   ];
 
-  const statCards = [
-    { value: skillCount.toString(), label: "Skills Added", icon: "🎯" },
-    { value: matchCount.toString(), label: "Matches Found", icon: "🤝" },
-    { value: sessions.length.toString(), label: "Upcoming Sessions", icon: "📅" },
+  const quickActions = [
+    {
+      href: "/matches",
+      icon: "🤝",
+      title: "Find Matches",
+      desc: "AI-powered peer matching",
+      color: "var(--gsu-blue)",
+    },
+    {
+      href: "/sessions",
+      icon: "📅",
+      title: "Sessions",
+      desc: "Book or manage sessions",
+      color: "#16a34a",
+    },
+    {
+      href: "/profile",
+      icon: "👤",
+      title: "Edit Profile",
+      desc: "Update skills & info",
+      color: "#8b5cf6",
+    },
+    {
+      href: "/me",
+      icon: "⭐",
+      title: "My Reviews",
+      desc: "See your ratings",
+      color: "#f59e0b",
+    },
   ];
 
   return (
     <div style={{ minHeight: "100vh", padding: "2rem 1.5rem" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        {/* Welcome Header */}
-        <div className="fade-in" style={{ marginBottom: "2.5rem" }}>
-          <h1 style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, marginBottom: "0.25rem" }}>
-            {greeting}, <span className="gradient-text">{displayName}</span> 👋
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        {/* ═══ Welcome Header ═══ */}
+        <div ref={observe} className="animate-on-scroll" style={{ marginBottom: "2rem" }}>
+          <h1
+            style={{
+              fontSize: "clamp(1.5rem, 3vw, 2.25rem)",
+              fontWeight: 800,
+              marginBottom: "0.25rem",
+            }}
+          >
+            {greeting},{" "}
+            <span className="gradient-text-animated">{displayName}</span> 👋
           </h1>
-          <p style={{ color: "var(--text-muted)", margin: 0 }}>
+          <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "1.05rem" }}>
             {!profile?.major
               ? "Complete your profile to get started with AI matching."
-              : "Here's what's happening with your tutoring."}
+              : "Here's your tutoring overview."}
           </p>
         </div>
 
-        {/* Profile Completion Banner */}
+        {/* ═══ Profile Completion Banner ═══ */}
         {(!profile?.major || skillCount === 0) && (
           <div
-            className="fade-in fade-in-delay-1"
+            ref={observe}
+            className="animate-on-scroll"
             style={{
               padding: "1.25rem 1.5rem",
-              background: "linear-gradient(135deg, rgba(0,57,166,0.08), rgba(204,0,0,0.05))",
+              background:
+                "linear-gradient(135deg, rgba(0,57,166,0.08), rgba(204,0,0,0.05))",
               border: "1px solid rgba(0,57,166,0.15)",
               borderRadius: "var(--radius-lg)",
               marginBottom: "2rem",
@@ -142,14 +306,21 @@ export default function DashboardPage() {
               justifyContent: "space-between",
               flexWrap: "wrap",
               gap: "1rem",
+              transition: "var(--transition)",
             }}
           >
             <div>
               <p style={{ fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
                 🎯 Complete your profile to unlock AI matching
               </p>
-              <p style={{ color: "var(--text-muted)", margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
-                Add your skills and weaknesses so we can find your perfect study partner.
+              <p
+                style={{
+                  color: "var(--text-muted)",
+                  margin: "0.25rem 0 0",
+                  fontSize: "0.9rem",
+                }}
+              >
+                Add your skills so we can find your perfect study partner.
               </p>
             </div>
             <Link href="/profile" className="btn btn-primary btn-sm">
@@ -158,9 +329,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Stats Row */}
+        {/* ═══ Stats Grid ═══ */}
         <div
-          className="fade-in fade-in-delay-2"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -168,34 +338,53 @@ export default function DashboardPage() {
             marginBottom: "2rem",
           }}
         >
-          {statCards.map((stat) => (
+          {statCards.map((stat, i) => (
             <div
               key={stat.label}
-              className="card"
+              ref={observe}
+              className="animate-on-scroll card card-glow"
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "1rem",
                 cursor: "default",
+                borderLeft: `4px solid ${stat.color}`,
+                transitionDelay: `${i * 0.1}s`,
               }}
             >
-              <div style={{
-                width: 48,
-                height: 48,
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-secondary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.5rem",
-              }}>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--bg-secondary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.5rem",
+                  flexShrink: 0,
+                }}
+              >
                 {stat.icon}
               </div>
               <div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 800, lineHeight: 1 }}>
-                  {stat.value}
+                <div
+                  style={{
+                    fontSize: "1.6rem",
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {loadingData ? "—" : stat.value}
                 </div>
-                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                <div
+                  style={{
+                    fontSize: "0.85rem",
+                    color: "var(--text-muted)",
+                    marginTop: "0.15rem",
+                  }}
+                >
                   {stat.label}
                 </div>
               </div>
@@ -203,42 +392,170 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Quick Actions */}
-        <h3 className="fade-in fade-in-delay-3" style={{ marginBottom: "1rem", fontSize: "1.1rem" }}>
+        {/* ═══ Ratings Row ═══ */}
+        {(avgTutorRating !== null || avgStudentRating !== null) && (
+          <div
+            ref={observe}
+            className="animate-on-scroll"
+            style={{ display: "flex", gap: "1rem", marginBottom: "2rem", flexWrap: "wrap" }}
+          >
+            {avgTutorRating !== null && (
+              <div
+                className="card card-glow"
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  cursor: "default",
+                  borderLeft: "4px solid #f59e0b",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                }}
+              >
+                <div style={{ fontSize: "1.5rem" }}>🎓</div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "var(--text-muted)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Tutor Rating
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                      marginTop: "0.15rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "0.1rem" }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <span
+                          key={s}
+                          style={{
+                            color:
+                              s <= Math.round(avgTutorRating)
+                                ? "#f59e0b"
+                                : "var(--border-color)",
+                            fontSize: "1.1rem",
+                          }}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                    <span style={{ fontWeight: 800, color: "#f59e0b", fontSize: "1.1rem" }}>
+                      {avgTutorRating}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {avgStudentRating !== null && (
+              <div
+                className="card card-glow"
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  cursor: "default",
+                  borderLeft: "4px solid #3b82f6",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                }}
+              >
+                <div style={{ fontSize: "1.5rem" }}>📚</div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "var(--text-muted)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Student Rating
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                      marginTop: "0.15rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "0.1rem" }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <span
+                          key={s}
+                          style={{
+                            color:
+                              s <= Math.round(avgStudentRating)
+                                ? "#3b82f6"
+                                : "var(--border-color)",
+                            fontSize: "1.1rem",
+                          }}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                    <span style={{ fontWeight: 800, color: "#3b82f6", fontSize: "1.1rem" }}>
+                      {avgStudentRating}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ Quick Actions ═══ */}
+        <h3
+          ref={observe}
+          className="animate-on-scroll"
+          style={{ marginBottom: "1rem", fontSize: "1.1rem", fontWeight: 700 }}
+        >
           Quick Actions
         </h3>
         <div
-          className="fade-in fade-in-delay-3"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
             gap: "1rem",
             marginBottom: "2.5rem",
           }}
         >
-          {quickActions.map((action) => (
+          {quickActions.map((action, i) => (
             <Link
               key={action.href}
               href={action.href}
-              className="card card-glow"
+              ref={observe}
+              className="animate-on-scroll card card-glow"
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "1rem",
                 textDecoration: "none",
                 borderLeft: `4px solid ${action.color}`,
+                transitionDelay: `${i * 0.1}s`,
               }}
             >
-              <div style={{
-                width: 44,
-                height: 44,
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-secondary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.3rem",
-              }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--bg-secondary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.3rem",
+                  flexShrink: 0,
+                }}
+              >
                 {action.icon}
               </div>
               <div>
@@ -253,19 +570,50 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Upcoming Sessions */}
-        <h3 className="fade-in fade-in-delay-4" style={{ marginBottom: "1rem", fontSize: "1.1rem" }}>
+        {/* ═══ Upcoming Sessions ═══ */}
+        <h3
+          ref={observe}
+          className="animate-on-scroll"
+          style={{ marginBottom: "1rem", fontSize: "1.1rem", fontWeight: 700 }}
+        >
           Upcoming Sessions
+          {sessions.length > 0 && (
+            <span
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--text-muted)",
+                fontWeight: 400,
+                marginLeft: "0.5rem",
+              }}
+            >
+              ({sessions.length})
+            </span>
+          )}
         </h3>
-        <div className="fade-in fade-in-delay-4">
-          {sessions.length === 0 ? (
-            <div className="card" style={{
-              textAlign: "center",
-              padding: "3rem 2rem",
-              cursor: "default",
-            }}>
+        <div ref={observe} className="animate-on-scroll">
+          {loadingData ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="skeleton"
+                  style={{ height: 80, borderRadius: "var(--radius-lg)" }}
+                />
+              ))}
+            </div>
+          ) : sessions.length === 0 ? (
+            <div
+              className="card"
+              style={{ textAlign: "center", padding: "3rem 2rem", cursor: "default" }}
+            >
               <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📅</div>
-              <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
+              <p
+                style={{
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 No upcoming sessions
               </p>
               <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>
@@ -277,36 +625,160 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="card"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    borderLeft: "4px solid var(--gsu-blue)",
-                    cursor: "default",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{session.subject}</div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                      {new Date(session.scheduled_at).toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+              {sessions.map((session, i) => {
+                const dt = new Date(session.scheduled_at);
+                const isToday = dt.toDateString() === new Date().toDateString();
+                return (
+                  <div
+                    key={session.id}
+                    ref={observe}
+                    className="animate-on-scroll card card-glow"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderLeft: `4px solid ${isToday ? "#16a34a" : "var(--gsu-blue)"}`,
+                      cursor: "default",
+                      flexWrap: "wrap",
+                      gap: "0.75rem",
+                      transitionDelay: `${i * 0.08}s`,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700 }}>
+                        {session.subject || "Tutoring Session"}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "var(--text-muted)",
+                          marginTop: "0.15rem",
+                        }}
+                      >
+                        {session.role} <strong>{session.other_name}</strong>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ textAlign: "right" }}>
+                        <div
+                          style={{
+                            fontSize: "0.9rem",
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {dt.toLocaleDateString("en-US", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                          {dt.toLocaleTimeString("en-US", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}{" "}
+                          · {session.duration_minutes}min
+                        </div>
+                      </div>
+                      {isToday && (
+                        <span className="badge badge-green" style={{ fontSize: "0.75rem" }}>
+                          Today
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <span className="badge badge-blue">{session.status}</span>
-                </div>
-              ))}
+                );
+              })}
+              <Link
+                href="/sessions"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0.75rem",
+                  borderRadius: "var(--radius-lg)",
+                  color: "var(--gsu-blue-light)",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  border: "1px dashed var(--border-color)",
+                  transition: "var(--transition)",
+                  textDecoration: "none",
+                }}
+              >
+                View all sessions →
+              </Link>
             </div>
           )}
         </div>
+
+        {/* ═══ Activity Summary ═══ */}
+        {!loadingData && (completedCount > 0 || unreadMessages > 0) && (
+          <div ref={observe} className="animate-on-scroll" style={{ marginTop: "2rem" }}>
+            <h3 style={{ marginBottom: "1rem", fontSize: "1.1rem", fontWeight: 700 }}>
+              Activity
+            </h3>
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+              {unreadMessages > 0 && (
+                <Link
+                  href="/matches"
+                  className="card card-glow"
+                  style={{
+                    flex: 1,
+                    minWidth: 220,
+                    textDecoration: "none",
+                    borderLeft: "4px solid var(--gsu-red)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                  }}
+                >
+                  <div style={{ fontSize: "1.5rem" }}>💬</div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+                      {unreadMessages} new message{unreadMessages !== 1 ? "s" : ""}
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                      In the last 24 hours
+                    </div>
+                  </div>
+                </Link>
+              )}
+              {completedCount > 0 && (
+                <Link
+                  href="/me"
+                  className="card card-glow"
+                  style={{
+                    flex: 1,
+                    minWidth: 220,
+                    textDecoration: "none",
+                    borderLeft: "4px solid #16a34a",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                  }}
+                >
+                  <div style={{ fontSize: "1.5rem" }}>🏆</div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+                      {completedCount} session{completedCount !== 1 ? "s" : ""} completed
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                      {totalHours} hours of tutoring
+                    </div>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
