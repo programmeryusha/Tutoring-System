@@ -37,6 +37,7 @@ export default function Navbar() {
         { href: "/dashboard", label: "Dashboard", icon: "🏠" },
         { href: "/matches", label: "Matches", icon: "🤝" },
         { href: "/sessions", label: "Sessions", icon: "📅" },
+        { href: "/forum", label: "Forum", icon: "💬" },
         { href: "/progress", label: "Progress", icon: "📊" },
         { href: "/about", label: "About", icon: "ℹ️" },
       ]
