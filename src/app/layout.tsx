@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import Navbar from "@/components/Navbar";
 import AccessibilityPanel from "@/components/AccessibilityPanel";
+import ChatWidget from "@/components/ChatWidget";
 
 export const metadata: Metadata = {
   title: "PantherTutor | GSU P2P Tutoring Platform",
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </a>
             <Navbar />
             <main id="main-content" style={{ paddingTop: 64 }}>{children}</main>
+            <ChatWidget />
             <AccessibilityPanel />
           </AuthProvider>
         </ThemeProvider>
