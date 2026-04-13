@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
 /* ─── GET /api/share?user_id=xxx ───
    Returns aggregated profile + stats + badges for the share card.
-   Uses supabaseAdmin to bypass RLS (server-side only).
 */
 export async function GET(req: Request) {
   try {
@@ -15,8 +14,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "user_id required" }, { status: 400 });
     }
 
+    if (!supabase) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+    }
+
     /* Profile */
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await supabase
       .from("profiles")
       .select("full_name, major, year, role")
       .eq("id", userId)
@@ -27,7 +30,7 @@ export async function GET(req: Request) {
     }
 
     /* Session stats */
-    const { data: sessions } = await supabaseAdmin
+    const { data: sessions } = await supabase
       .from("sessions")
       .select("user1_id, user2_id, duration_minutes, status")
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
@@ -42,7 +45,7 @@ export async function GET(req: Request) {
     ) / 10;
 
     /* Ratings — as reviewee */
-    const { data: reviews } = await supabaseAdmin
+    const { data: reviews } = await supabase
       .from("reviews")
       .select("rating, reviewee_role")
       .eq("reviewee_id", userId);
@@ -64,20 +67,20 @@ export async function GET(req: Request) {
         : null;
 
     /* Also check reviews given (as reviewer) for "Reviews Given" stat */
-    const { count: reviewsGivenCount } = await supabaseAdmin
+    const { count: reviewsGivenCount } = await supabase
       .from("reviews")
       .select("id", { count: "exact", head: true })
       .eq("reviewer_id", userId);
 
     /* Connections */
-    const { count: connectionCount } = await supabaseAdmin
+    const { count: connectionCount } = await supabase
       .from("matches")
       .select("id", { count: "exact", head: true })
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .eq("status", "accepted");
 
     /* Skills (strengths) */
-    const { data: skillRows } = await supabaseAdmin
+    const { data: skillRows } = await supabase
       .from("user_skills")
       .select("skills(name), level")
       .eq("user_id", userId)
@@ -86,7 +89,7 @@ export async function GET(req: Request) {
     const strengths = (skillRows || []).map((r: any) => r.skills?.name).filter(Boolean);
 
     /* Badges */
-    const { data: badgeRows } = await supabaseAdmin
+    const { data: badgeRows } = await supabase
       .from("user_badges")
       .select("badge_id")
       .eq("user_id", userId);
