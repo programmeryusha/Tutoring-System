@@ -48,6 +48,7 @@ export default function Navbar() {
   const profileLinks = [
     { href: "/me", label: "My Profile", icon: "🙋" },
     { href: "/profile", label: "Edit Profile", icon: "✏️" },
+    { href: "/share", label: "Share Card", icon: "📤" },
   ];
 
   const isOnProfilePage = pathname === "/me" || pathname === "/profile";

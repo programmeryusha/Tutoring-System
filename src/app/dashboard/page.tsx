@@ -332,6 +332,13 @@ export default function DashboardPage() {
       desc: "See your ratings",
       color: "#f59e0b",
     },
+    {
+      href: "/share",
+      icon: "📤",
+      title: "Share Card",
+      desc: "Show off your progress",
+      color: "#1DA1F2",
+    },
   ];
 
   return (

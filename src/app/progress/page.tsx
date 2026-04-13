@@ -910,6 +910,49 @@ export default function ProgressPage() {
                 ))}
               </div>
             </div>
+
+            {/* ── Share Achievement Card CTA ── */}
+            <div
+              ref={observe}
+              className="animate-on-scroll"
+              style={{
+                marginBottom: "2rem",
+                background: "linear-gradient(135deg, rgba(0,57,166,0.12), rgba(204,0,0,0.08))",
+                borderRadius: "var(--radius-lg)",
+                border: "1px solid var(--border-color)",
+                padding: "1.25rem 1.5rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "1rem",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", marginBottom: 4 }}>
+                  📤 Share Your Progress
+                </div>
+                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                  Generate a beautiful card to showcase your achievements on Twitter &amp; LinkedIn
+                </div>
+              </div>
+              <a
+                href="/share"
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: "var(--radius-md)",
+                  background: "linear-gradient(135deg, #0039A6, #002266)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                  transition: "opacity 0.2s",
+                }}
+              >
+                Create Share Card →
+              </a>
+            </div>
           </>
         )}
         </>
