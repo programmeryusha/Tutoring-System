@@ -3,6 +3,16 @@ import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+
+interface EarnedBadge {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  earned: boolean;
+  earned_at: string | null;
+}
 
 interface Skill {
   id: number;
@@ -67,6 +77,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [badges, setBadges] = useState<EarnedBadge[]>([]);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -113,6 +124,14 @@ export default function ProfilePage() {
         is_strength: s.level === "mastered" || s.level === "proficient",
       }));
       setUserSkills(mapped);
+
+      // Load badges (trigger check & award)
+      try {
+        const res = await fetch(`/api/badges?user_id=${user!.id}&check=true`);
+        const data = await res.json();
+        setBadges(data.badges || []);
+      } catch {}
+
       setLoadingData(false);
     }
     load();
@@ -197,12 +216,28 @@ export default function ProfilePage() {
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         {/* Header */}
         <div className="fade-in" style={{ marginBottom: "2rem" }}>
-          <h1 style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, marginBottom: "0.25rem" }}>
-            Your <span className="gradient-text">Profile</span>
-          </h1>
-          <p style={{ color: "var(--text-muted)", margin: 0 }}>
-            Set up your skills to unlock AI-powered matching.
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem" }}>
+            <div>
+              <h1 style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, marginBottom: "0.25rem" }}>
+                Your <span className="gradient-text">Profile</span>
+              </h1>
+              <p style={{ color: "var(--text-muted)", margin: 0 }}>
+                Set up your skills to unlock AI-powered matching.
+              </p>
+            </div>
+            <Link
+              href={`/profile/${user.id}`}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                padding: "0.5rem 1rem", borderRadius: "var(--radius-full)",
+                border: "1px solid var(--border-color)", background: "var(--bg-secondary)",
+                color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: 600,
+                textDecoration: "none", transition: "all 0.2s ease",
+              }}
+            >
+              👁️ View Public Profile
+            </Link>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -500,6 +535,40 @@ export default function ProfilePage() {
             {saving ? "Saving..." : "Save Profile"}
           </button>
         </div>
+
+        {/* Badges Showcase */}
+        {badges.length > 0 && (() => {
+          const earned = badges.filter((b) => b.earned);
+          return (
+            <div className="fade-in fade-in-delay-3 card" style={{ marginTop: "2rem", cursor: "default" }}>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                🏅 Badges ({earned.length}/{badges.length})
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "0.5rem" }}>
+                {badges.map((badge) => (
+                  <div
+                    key={badge.id}
+                    style={{
+                      display: "flex", flexDirection: "column", alignItems: "center",
+                      padding: "0.6rem 0.4rem", borderRadius: "var(--radius-lg)",
+                      background: badge.earned ? "var(--bg-secondary)" : "var(--bg-primary)",
+                      border: `1px solid ${badge.earned ? "var(--gsu-blue)" : "var(--border-color)"}`,
+                      opacity: badge.earned ? 1 : 0.35,
+                      filter: badge.earned ? "none" : "grayscale(100%)",
+                      textAlign: "center", transition: "all 0.2s ease",
+                    }}
+                    title={badge.description}
+                  >
+                    <span style={{ fontSize: "1.5rem" }}>{badge.icon}</span>
+                    <span style={{ fontSize: "0.7rem", fontWeight: 600, lineHeight: 1.2, marginTop: "0.2rem" }}>
+                      {badge.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Summary */}
         {(strengths.length > 0 || weaknesses.length > 0) && (

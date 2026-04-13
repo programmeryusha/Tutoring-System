@@ -655,7 +655,9 @@ export default function MatchesPage() {
                 }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      {c.full_name}
+                      <Link href={`/profile/${c.otherUserId}`} style={{ color: "inherit", textDecoration: "none" }}>
+                        {c.full_name}
+                      </Link>
                       {c.avgRating !== null && (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", fontSize: "0.8rem", color: "#f59e0b", fontWeight: 700 }}>
                           ★ {c.avgRating.toFixed(1)}
@@ -670,6 +672,18 @@ export default function MatchesPage() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+                    <Link
+                      href={`/profile/${c.otherUserId}`}
+                      style={{
+                        fontSize: "0.8rem", padding: "6px 14px", borderRadius: "8px",
+                        border: "1px solid var(--border-color)", background: "transparent",
+                        color: "var(--text-muted)", fontWeight: 600, cursor: "pointer",
+                        transition: "var(--transition)", textDecoration: "none",
+                        display: "inline-flex", alignItems: "center",
+                      }}
+                    >
+                      👤 Profile
+                    </Link>
                     <button
                       onClick={() => router.push(`/chat/${c.matchId}`)}
                       style={{
@@ -875,7 +889,7 @@ export default function MatchesPage() {
                               {tutor.full_name.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{tutor.full_name}</div>
+                              <Link href={`/profile/${tutor.userId}`} style={{ fontWeight: 700, fontSize: "0.95rem", color: "inherit", textDecoration: "none" }}>{tutor.full_name}</Link>
                               <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
                                 {[tutor.major, tutor.year].filter(Boolean).join(" • ") || "Student"}
                               </div>
