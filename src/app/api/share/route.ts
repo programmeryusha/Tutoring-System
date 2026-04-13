@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
 /* ─── GET /api/share?user_id=xxx ───
    Returns aggregated profile + stats + badges for the share card.
+   Uses supabaseAdmin to bypass RLS (server-side only).
 */
 export async function GET(req: Request) {
   try {
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
     }
 
     /* Profile */
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("full_name, major, year, role")
       .eq("id", userId)
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
     }
 
     /* Session stats */
-    const { data: sessions } = await supabase
+    const { data: sessions } = await supabaseAdmin
       .from("sessions")
       .select("user1_id, user2_id, duration_minutes, status")
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
@@ -40,8 +41,8 @@ export async function GET(req: Request) {
       rows.reduce((sum: number, s: any) => sum + (s.duration_minutes || 60), 0) / 60 * 10
     ) / 10;
 
-    /* Ratings */
-    const { data: reviews } = await supabase
+    /* Ratings — as reviewee */
+    const { data: reviews } = await supabaseAdmin
       .from("reviews")
       .select("rating, reviewee_role")
       .eq("reviewee_id", userId);
@@ -62,15 +63,21 @@ export async function GET(req: Request) {
           ) / 10
         : null;
 
+    /* Also check reviews given (as reviewer) for "Reviews Given" stat */
+    const { count: reviewsGivenCount } = await supabaseAdmin
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("reviewer_id", userId);
+
     /* Connections */
-    const { count: connectionCount } = await supabase
+    const { count: connectionCount } = await supabaseAdmin
       .from("matches")
       .select("id", { count: "exact", head: true })
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .eq("status", "accepted");
 
     /* Skills (strengths) */
-    const { data: skillRows } = await supabase
+    const { data: skillRows } = await supabaseAdmin
       .from("user_skills")
       .select("skills(name), level")
       .eq("user_id", userId)
@@ -79,7 +86,7 @@ export async function GET(req: Request) {
     const strengths = (skillRows || []).map((r: any) => r.skills?.name).filter(Boolean);
 
     /* Badges */
-    const { data: badgeRows } = await supabase
+    const { data: badgeRows } = await supabaseAdmin
       .from("user_badges")
       .select("badge_id")
       .eq("user_id", userId);
@@ -101,6 +108,7 @@ export async function GET(req: Request) {
         avgRating,
         tutorAvgRating,
         reviewCount,
+        reviewsGivenCount: reviewsGivenCount || 0,
         connectionCount: connectionCount || 0,
       },
       strengths,
