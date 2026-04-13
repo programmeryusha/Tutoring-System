@@ -68,6 +68,7 @@ export default function MatchesPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [incomingRequests, setIncomingRequests] = useState<IncomingRequest[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [connectionsOpen, setConnectionsOpen] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -611,7 +612,15 @@ export default function MatchesPage() {
         {/* My Connections */}
         {connections.length > 0 && (
           <div className="fade-in card" style={{ cursor: "default", marginBottom: "2rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            <div
+              onClick={() => setConnectionsOpen(!connectionsOpen)}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                marginBottom: connectionsOpen ? "1rem" : 0,
+                cursor: "pointer", userSelect: "none",
+                transition: "margin 0.3s ease",
+              }}
+            >
               <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0 }}>
                 🤝 My Connections
               </h3>
@@ -620,8 +629,22 @@ export default function MatchesPage() {
                 borderRadius: "999px", padding: "2px 10px",
                 fontSize: "0.8rem", fontWeight: 700,
               }}>{connections.length}</span>
+              <span style={{
+                marginLeft: "auto",
+                fontSize: "1.1rem",
+                color: "var(--text-muted)",
+                transition: "transform 0.3s ease",
+                transform: connectionsOpen ? "rotate(180deg)" : "rotate(0deg)",
+                display: "inline-block",
+              }}>▾</span>
             </div>
-            <div style={{ display: "grid", gap: "0.75rem" }}>
+            <div style={{
+              display: "grid", gap: "0.75rem",
+              maxHeight: connectionsOpen ? `${connections.length * 120}px` : "0px",
+              overflow: "hidden",
+              opacity: connectionsOpen ? 1 : 0,
+              transition: "max-height 0.35s ease, opacity 0.25s ease",
+            }}>
               {connections.map((c) => (
                 <div key={c.matchId} style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
