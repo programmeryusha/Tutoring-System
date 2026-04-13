@@ -71,9 +71,9 @@ function timeAgo(dateStr: string) {
 }
 
 const TAG_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  question: { bg: "#0039A622", text: "#0039A6", label: "❓ Question" },
-  discussion: { bg: "#10b98122", text: "#059669", label: "💬 Discussion" },
-  announcement: { bg: "#CC000022", text: "#CC0000", label: "📢 Announcement" },
+  question: { bg: "#0039A622", text: "var(--accent-link)", label: "❓ Question" },
+  discussion: { bg: "#10b98122", text: "var(--accent-emerald)", label: "💬 Discussion" },
+  announcement: { bg: "#CC000022", text: "var(--gsu-red-light)", label: "📢 Announcement" },
 };
 
 export default function ForumPage() {
@@ -253,7 +253,7 @@ export default function ForumPage() {
               padding: "8px 16px",
               borderRadius: 20,
               border: "2px solid",
-              borderColor: !selectedSkill ? "#0039A6" : "var(--border, #e2e8f0)",
+              borderColor: !selectedSkill ? "#0039A6" : "var(--border-color)",
               background: !selectedSkill ? "#0039A6" : "transparent",
               color: !selectedSkill ? "#fff" : "inherit",
               cursor: "pointer",
@@ -272,7 +272,7 @@ export default function ForumPage() {
                 padding: "8px 16px",
                 borderRadius: 20,
                 border: "2px solid",
-                borderColor: selectedSkill === sk.id ? "#0039A6" : "var(--border, #e2e8f0)",
+                borderColor: selectedSkill === sk.id ? "#0039A6" : "var(--border-color)",
                 background: selectedSkill === sk.id ? "#0039A6" : "transparent",
                 color: selectedSkill === sk.id ? "#fff" : "inherit",
                 cursor: "pointer",
@@ -289,12 +289,12 @@ export default function ForumPage() {
         {skills.length === 0 && (
           <div style={{
             textAlign: "center", padding: 60, opacity: 0.6,
-            background: "var(--card-bg, #fff)", borderRadius: 16,
-            border: "1px solid var(--border, #e2e8f0)",
+            background: "var(--bg-card)", borderRadius: 16,
+            border: "1px solid var(--border-color)",
           }}>
             <p style={{ fontSize: 48, marginBottom: 16 }}>📚</p>
             <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No subjects yet</p>
-            <p>Add some skills in your <Link href="/profile" style={{ color: "#0039A6", textDecoration: "underline" }}>profile</Link> to see forum subjects.</p>
+            <p>Add some skills in your <Link href="/profile" style={{ color: "var(--accent-link)", textDecoration: "underline" }}>profile</Link> to see forum subjects.</p>
           </div>
         )}
 
@@ -317,8 +317,8 @@ export default function ForumPage() {
                     width: "100%",
                     padding: "10px 12px 10px 36px",
                     borderRadius: 12,
-                    border: "1px solid var(--border, #e2e8f0)",
-                    background: "var(--card-bg, #fff)",
+                    border: "1px solid var(--border-color)",
+                    background: "var(--bg-card)",
                     fontSize: 14,
                     outline: "none",
                   }}
@@ -326,7 +326,7 @@ export default function ForumPage() {
               </div>
 
               {/* Sort buttons */}
-              <div style={{ display: "flex", gap: 4, background: "var(--card-bg, #fff)", borderRadius: 12, padding: 4, border: "1px solid var(--border, #e2e8f0)" }}>
+              <div style={{ display: "flex", gap: 4, background: "var(--bg-card)", borderRadius: 12, padding: 4, border: "1px solid var(--border-color)" }}>
                 {(["new", "top", "unresolved"] as const).map((s) => (
                   <button
                     key={s}
@@ -385,8 +385,8 @@ export default function ForumPage() {
               ) : threads.length === 0 ? (
                 <div style={{
                   textAlign: "center", padding: 60, opacity: 0.6,
-                  background: "var(--card-bg, #fff)", borderRadius: 16,
-                  border: "1px solid var(--border, #e2e8f0)",
+                  background: "var(--bg-card)", borderRadius: 16,
+                  border: "1px solid var(--border-color)",
                 }}>
                   <p style={{ fontSize: 48, marginBottom: 16 }}>🦗</p>
                   <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No threads yet</p>
@@ -407,8 +407,8 @@ export default function ForumPage() {
                         gap: 16,
                         padding: 20,
                         borderRadius: 16,
-                        border: "1px solid var(--border, #e2e8f0)",
-                        background: "var(--card-bg, #fff)",
+                        border: "1px solid var(--border-color)",
+                        background: "var(--bg-card)",
                         textDecoration: "none",
                         color: "inherit",
                         transition: "all 0.3s ease",
@@ -424,7 +424,7 @@ export default function ForumPage() {
                       onMouseLeave={(e) => {
                         e.currentTarget.style.transform = "translateY(0)";
                         e.currentTarget.style.boxShadow = "none";
-                        e.currentTarget.style.borderColor = "var(--border, #e2e8f0)";
+                        e.currentTarget.style.borderColor = "var(--border-color)";
                       }}
                     >
                       {/* Votes */}
@@ -440,7 +440,7 @@ export default function ForumPage() {
                         <span style={{
                           fontSize: 18,
                           fontWeight: 800,
-                          color: net > 0 ? "#059669" : net < 0 ? "#CC0000" : "inherit",
+                          color: net > 0 ? "var(--accent-emerald)" : net < 0 ? "var(--gsu-red-light)" : "inherit",
                         }}>{net}</span>
                         <span style={{ fontSize: 16, opacity: 0.5 }}>▼</span>
                       </div>
@@ -460,7 +460,7 @@ export default function ForumPage() {
                             padding: "2px 10px",
                             borderRadius: 12,
                             background: "#6366f122",
-                            color: "#6366f1",
+                            color: "var(--accent-indigo)",
                             fontSize: 11,
                             fontWeight: 600,
                           }}>{t.skill_name}</span>
@@ -469,7 +469,7 @@ export default function ForumPage() {
                               padding: "2px 10px",
                               borderRadius: 12,
                               background: "#10b98122",
-                              color: "#059669",
+                              color: "var(--accent-emerald)",
                               fontSize: 11,
                               fontWeight: 700,
                             }}>✅ Resolved</span>
@@ -509,8 +509,8 @@ export default function ForumPage() {
                   style={{
                     padding: "8px 16px",
                     borderRadius: 10,
-                    border: "1px solid var(--border, #e2e8f0)",
-                    background: "var(--card-bg, #fff)",
+                    border: "1px solid var(--border-color)",
+                    background: "var(--bg-card)",
                     cursor: page <= 1 ? "not-allowed" : "pointer",
                     opacity: page <= 1 ? 0.4 : 1,
                     fontWeight: 600,
@@ -525,8 +525,8 @@ export default function ForumPage() {
                   style={{
                     padding: "8px 16px",
                     borderRadius: 10,
-                    border: "1px solid var(--border, #e2e8f0)",
-                    background: "var(--card-bg, #fff)",
+                    border: "1px solid var(--border-color)",
+                    background: "var(--bg-card)",
                     cursor: page >= totalPages ? "not-allowed" : "pointer",
                     opacity: page >= totalPages ? 0.4 : 1,
                     fontWeight: 600,
@@ -551,7 +551,7 @@ export default function ForumPage() {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "var(--card-bg, #fff)",
+              background: "var(--bg-card)",
               borderRadius: 20,
               padding: 32,
               maxWidth: 600,
@@ -573,8 +573,8 @@ export default function ForumPage() {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 12,
-                  border: "1px solid var(--border, #e2e8f0)",
-                  background: "var(--card-bg, #fff)",
+                  border: "1px solid var(--border-color)",
+                  background: "var(--bg-card)",
                   fontSize: 14,
                 }}
               >
@@ -599,7 +599,7 @@ export default function ForumPage() {
                       style={{
                         padding: "8px 16px",
                         borderRadius: 10,
-                        border: `2px solid ${newTag === tg ? st.text : "var(--border, #e2e8f0)"}`,
+                        border: `2px solid ${newTag === tg ? st.text : "var(--border-color)"}`,
                         background: newTag === tg ? st.bg : "transparent",
                         color: newTag === tg ? st.text : "inherit",
                         cursor: "pointer",
@@ -627,8 +627,8 @@ export default function ForumPage() {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 12,
-                  border: "1px solid var(--border, #e2e8f0)",
-                  background: "var(--card-bg, #fff)",
+                  border: "1px solid var(--border-color)",
+                  background: "var(--bg-card)",
                   fontSize: 14,
                 }}
               />
@@ -647,8 +647,8 @@ export default function ForumPage() {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 12,
-                  border: "1px solid var(--border, #e2e8f0)",
-                  background: "var(--card-bg, #fff)",
+                  border: "1px solid var(--border-color)",
+                  background: "var(--bg-card)",
                   fontSize: 14,
                   resize: "vertical",
                   fontFamily: "inherit",
@@ -662,7 +662,7 @@ export default function ForumPage() {
                 style={{
                   padding: "10px 20px",
                   borderRadius: 12,
-                  border: "1px solid var(--border, #e2e8f0)",
+                  border: "1px solid var(--border-color)",
                   background: "transparent",
                   cursor: "pointer",
                   fontWeight: 600,

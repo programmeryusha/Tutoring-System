@@ -50,9 +50,9 @@ function timeAgo(dateStr: string) {
 }
 
 const TAG_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  question: { bg: "#0039A622", text: "#0039A6", label: "❓ Question" },
-  discussion: { bg: "#10b98122", text: "#059669", label: "💬 Discussion" },
-  announcement: { bg: "#CC000022", text: "#CC0000", label: "📢 Announcement" },
+  question: { bg: "#0039A622", text: "var(--accent-link)", label: "❓ Question" },
+  discussion: { bg: "#10b98122", text: "var(--accent-emerald)", label: "💬 Discussion" },
+  announcement: { bg: "#CC000022", text: "var(--gsu-red-light)", label: "📢 Announcement" },
 };
 
 /* ── Scroll-triggered animation hook ── */
@@ -110,7 +110,7 @@ function VoteButtons({
           border: "none",
           cursor: "pointer",
           fontSize: vertical ? 18 : 14,
-          color: userVote === 1 ? "#059669" : "inherit",
+          color: userVote === 1 ? "var(--accent-emerald)" : "inherit",
           opacity: userVote === 1 ? 1 : 0.4,
           transition: "all 0.2s",
           fontWeight: userVote === 1 ? 900 : 400,
@@ -121,7 +121,7 @@ function VoteButtons({
       <span style={{
         fontSize: vertical ? 18 : 14,
         fontWeight: 800,
-        color: net > 0 ? "#059669" : net < 0 ? "#CC0000" : "inherit",
+        color: net > 0 ? "var(--accent-emerald)" : net < 0 ? "var(--gsu-red-light)" : "inherit",
         minWidth: vertical ? undefined : 20,
         textAlign: "center",
       }}>{net}</span>
@@ -132,7 +132,7 @@ function VoteButtons({
           border: "none",
           cursor: "pointer",
           fontSize: vertical ? 18 : 14,
-          color: userVote === -1 ? "#CC0000" : "inherit",
+          color: userVote === -1 ? "var(--gsu-red-light)" : "inherit",
           opacity: userVote === -1 ? 1 : 0.4,
           transition: "all 0.2s",
           fontWeight: userVote === -1 ? 900 : 400,
@@ -260,7 +260,7 @@ export default function ForumThreadPage() {
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
         <p style={{ fontSize: 48 }}>😿</p>
         <p style={{ fontSize: 18, fontWeight: 600 }}>Thread not found</p>
-        <Link href="/forum" style={{ color: "#0039A6", textDecoration: "underline" }}>Back to Forum</Link>
+        <Link href="/forum" style={{ color: "var(--accent-link)", textDecoration: "underline" }}>Back to Forum</Link>
       </div>
     );
   }
@@ -279,7 +279,7 @@ export default function ForumThreadPage() {
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          color: "#0039A6",
+          color: "var(--accent-link)",
           textDecoration: "none",
           fontWeight: 600,
           fontSize: 14,
@@ -299,8 +299,8 @@ export default function ForumThreadPage() {
           gap: 20,
           padding: 28,
           borderRadius: 20,
-          border: "1px solid var(--border, #e2e8f0)",
-          background: "var(--card-bg, #fff)",
+          border: "1px solid var(--border-color)",
+          background: "var(--bg-card)",
           marginBottom: 32,
           opacity: 0,
           transform: "translateY(30px)",
@@ -325,13 +325,13 @@ export default function ForumThreadPage() {
               }}>{tag.label}</span>
               <span style={{
                 padding: "3px 12px", borderRadius: 12,
-                background: "#6366f122", color: "#6366f1",
+                background: "var(--accent-indigo)22", color: "var(--accent-indigo)",
                 fontSize: 12, fontWeight: 600,
               }}>{thread.skill_name}</span>
               {thread.is_resolved && (
                 <span style={{
                   padding: "3px 12px", borderRadius: 12,
-                  background: "#10b98122", color: "#059669",
+                  background: "#10b98122", color: "var(--accent-emerald)",
                   fontSize: 12, fontWeight: 700,
                 }}>✅ Resolved</span>
               )}
@@ -357,12 +357,12 @@ export default function ForumThreadPage() {
               alignItems: "center",
               flexWrap: "wrap",
               paddingTop: 12,
-              borderTop: "1px solid var(--border, #e2e8f0)",
+              borderTop: "1px solid var(--border-color)",
               fontSize: 13,
               opacity: 0.6,
             }}>
               <Link href={`/profile/${thread.author_id}`} style={{ color: "inherit", textDecoration: "none" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#0039A6")}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-link)")}
                 onMouseLeave={(e) => (e.currentTarget.style.color = "inherit")}>
                 👤 {thread.author_name}
               </Link>
@@ -376,12 +376,12 @@ export default function ForumThreadPage() {
                     marginLeft: "auto",
                     padding: "6px 14px",
                     borderRadius: 10,
-                    border: "1px solid var(--border, #e2e8f0)",
+                    border: "1px solid var(--border-color)",
                     background: thread.is_resolved ? "#10b98122" : "transparent",
                     cursor: "pointer",
                     fontWeight: 600,
                     fontSize: 12,
-                    color: thread.is_resolved ? "#059669" : "inherit",
+                    color: thread.is_resolved ? "var(--accent-emerald)" : "inherit",
                     transition: "all 0.2s",
                   }}
                 >
@@ -407,9 +407,9 @@ export default function ForumThreadPage() {
               textAlign: "center",
               padding: 40,
               opacity: 0.5,
-              background: "var(--card-bg, #fff)",
+              background: "var(--bg-card)",
               borderRadius: 16,
-              border: "1px solid var(--border, #e2e8f0)",
+              border: "1px solid var(--border-color)",
             }}>
               <p style={{ fontSize: 32, marginBottom: 8 }}>🦗</p>
               <p>No replies yet. Be the first to respond!</p>
@@ -429,8 +429,8 @@ export default function ForumThreadPage() {
                       gap: 14,
                       padding: 18,
                       borderRadius: 14,
-                      border: "1px solid var(--border, #e2e8f0)",
-                      background: "var(--card-bg, #fff)",
+                      border: "1px solid var(--border-color)",
+                      background: "var(--bg-card)",
                       transition: "all 0.3s ease",
                       opacity: 0,
                       transform: "translateY(15px)",
@@ -457,16 +457,16 @@ export default function ForumThreadPage() {
                             gap: 4,
                             padding: "3px 10px",
                             borderRadius: 8,
-                            background: "#0039A611",
-                            color: "#0039A6",
+                            background: "rgba(0,57,166,0.07)",
+                            color: "var(--accent-link)",
                             fontSize: 12,
                             fontWeight: 600,
                             textDecoration: "none",
                             marginBottom: 8,
                             transition: "background 0.2s",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#0039A622")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "#0039A611")}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,57,166,0.13)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,57,166,0.07)")}
                         >
                           ↩ replying to {r.reply_to_name}
                         </a>
@@ -478,7 +478,7 @@ export default function ForumThreadPage() {
 
                       <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 12, opacity: 0.5 }}>
                         <Link href={`/profile/${r.author_id}`} style={{ color: "inherit", textDecoration: "none" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = "#0039A6")}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-link)")}
                           onMouseLeave={(e) => (e.currentTarget.style.color = "inherit")}>
                           👤 {r.author_name}
                         </Link>
@@ -489,7 +489,7 @@ export default function ForumThreadPage() {
                             background: "none",
                             border: "none",
                             cursor: "pointer",
-                            color: "#0039A6",
+                            color: "var(--accent-link)",
                             fontWeight: 600,
                             fontSize: 12,
                             padding: 0,
@@ -513,8 +513,8 @@ export default function ForumThreadPage() {
         <div ref={(el) => { if (el) observe(el); }} className="animate-target" style={{
           padding: 24,
           borderRadius: 20,
-          border: "1px solid var(--border, #e2e8f0)",
-          background: "var(--card-bg, #fff)",
+          border: "1px solid var(--border-color)",
+          background: "var(--bg-card)",
           opacity: 0, transform: "translateY(20px)",
           transition: "all 0.5s ease 0.2s",
         }}>
@@ -530,8 +530,8 @@ export default function ForumThreadPage() {
               gap: 6,
               padding: "6px 14px",
               borderRadius: 10,
-              background: "#0039A611",
-              color: "#0039A6",
+              background: "rgba(0,57,166,0.07)",
+              color: "var(--accent-link)",
               fontSize: 13,
               fontWeight: 600,
               marginBottom: 12,
@@ -544,7 +544,7 @@ export default function ForumThreadPage() {
                   border: "none",
                   cursor: "pointer",
                   fontSize: 16,
-                  color: "#0039A6",
+                  color: "var(--accent-link)",
                   opacity: 0.6,
                   padding: 0,
                   marginLeft: 4,
@@ -564,8 +564,8 @@ export default function ForumThreadPage() {
               width: "100%",
               padding: "12px 14px",
               borderRadius: 12,
-              border: "1px solid var(--border, #e2e8f0)",
-              background: "var(--input-bg, #f8fafc)",
+              border: "1px solid var(--border-color)",
+              background: "var(--bg-input)",
               fontSize: 14,
               resize: "vertical",
               fontFamily: "inherit",
@@ -574,7 +574,7 @@ export default function ForumThreadPage() {
               transition: "border-color 0.2s",
             }}
             onFocus={(e) => (e.currentTarget.style.borderColor = "#0039A6")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border, #e2e8f0)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-color)")}
           />
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

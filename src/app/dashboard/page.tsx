@@ -875,8 +875,8 @@ export default function DashboardPage() {
                     <span className="badge badge-blue" style={{ fontSize: "0.75rem" }}>{challenge.subject}</span>
                     <span className="badge" style={{
                       fontSize: "0.75rem",
-                      background: challenge.difficulty === "easy" ? "#dcfce7" : challenge.difficulty === "hard" ? "#fecaca" : "#fef9c3",
-                      color: challenge.difficulty === "easy" ? "#16a34a" : challenge.difficulty === "hard" ? "#dc2626" : "#a16207",
+                      background: challenge.difficulty === "easy" ? "rgba(22,163,74,0.15)" : challenge.difficulty === "hard" ? "rgba(220,38,38,0.15)" : "rgba(245,158,11,0.15)",
+                      color: challenge.difficulty === "easy" ? "var(--accent-emerald)" : challenge.difficulty === "hard" ? "var(--gsu-red-light)" : "var(--accent-amber)",
                     }}>
                       {challenge.difficulty}
                     </span>
@@ -988,7 +988,7 @@ export default function DashboardPage() {
                       background: "rgba(245, 158, 11, 0.08)",
                       border: "1px solid rgba(245, 158, 11, 0.2)",
                       fontSize: "0.9rem",
-                      color: "#a16207",
+                      color: "var(--accent-amber)",
                     }}>
                       💡 {challenge.hint}
                     </div>

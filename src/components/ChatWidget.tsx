@@ -18,7 +18,7 @@ function renderContent(text: string) {
         <pre
           key={i}
           style={{
-            background: "rgba(0,0,0,0.08)",
+            background: "var(--code-bg, rgba(0,0,0,0.08))",
             borderRadius: 8,
             padding: "10px 12px",
             fontSize: 12,
@@ -45,7 +45,7 @@ function renderContent(text: string) {
             <code
               key={j}
               style={{
-                background: "rgba(0,0,0,0.07)",
+                background: "var(--code-inline-bg, rgba(0,0,0,0.07))",
                 borderRadius: 4,
                 padding: "1px 5px",
                 fontSize: "0.9em",
@@ -213,8 +213,8 @@ export default function ChatWidget() {
           transform: open ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
           pointerEvents: open ? "auto" : "none",
           transition: "all 0.3s cubic-bezier(.16,1,.3,1)",
-          background: "var(--card-bg, #fff)",
-          border: "1px solid var(--border, #e2e8f0)",
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-color)",
         }}
       >
         {/* Header */}
@@ -323,8 +323,8 @@ export default function ChatWidget() {
                   background:
                     msg.role === "user"
                       ? "linear-gradient(135deg, #0039A6, #002266)"
-                      : "var(--chat-bot-bg, #f1f5f9)",
-                  color: msg.role === "user" ? "#fff" : "inherit",
+                      : "var(--chat-bot-bg)",
+                  color: msg.role === "user" ? "#fff" : "var(--text-primary)",
                   fontSize: 14,
                   lineHeight: 1.5,
                   wordBreak: "break-word",
@@ -341,7 +341,7 @@ export default function ChatWidget() {
                 style={{
                   padding: "12px 18px",
                   borderRadius: "16px 16px 16px 4px",
-                  background: "var(--chat-bot-bg, #f1f5f9)",
+                  background: "var(--chat-bot-bg)",
                   display: "flex",
                   gap: 5,
                   alignItems: "center",
@@ -361,11 +361,11 @@ export default function ChatWidget() {
         <div
           style={{
             padding: "12px 14px",
-            borderTop: "1px solid var(--border, #e2e8f0)",
+            borderTop: "1px solid var(--border-color)",
             display: "flex",
             gap: 8,
             flexShrink: 0,
-            background: "var(--card-bg, #fff)",
+            background: "var(--bg-card)",
           }}
         >
           <input
@@ -384,15 +384,15 @@ export default function ChatWidget() {
               flex: 1,
               padding: "10px 14px",
               borderRadius: 12,
-              border: "1px solid var(--border, #e2e8f0)",
-              background: "var(--input-bg, #f8fafc)",
+              border: "1px solid var(--border-color)",
+              background: "var(--bg-input)",
               fontSize: 14,
               outline: "none",
               fontFamily: "inherit",
               transition: "border-color 0.2s",
             }}
             onFocus={(e) => (e.currentTarget.style.borderColor = "#0039A6")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border, #e2e8f0)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-color)")}
           />
           <button
             onClick={sendMessage}

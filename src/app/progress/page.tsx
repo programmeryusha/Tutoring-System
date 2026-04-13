@@ -1053,8 +1053,8 @@ export default function ProgressPage() {
                   <span className="badge badge-blue" style={{ fontSize: "0.75rem" }}>{currentProblem.subject}</span>
                   <span className="badge" style={{
                     fontSize: "0.75rem",
-                    background: currentProblem.difficulty === "easy" ? "#dcfce7" : currentProblem.difficulty === "hard" ? "#fecaca" : "#fef9c3",
-                    color: currentProblem.difficulty === "easy" ? "#16a34a" : currentProblem.difficulty === "hard" ? "#dc2626" : "#a16207",
+                    background: currentProblem.difficulty === "easy" ? "rgba(22,163,74,0.15)" : currentProblem.difficulty === "hard" ? "rgba(220,38,38,0.15)" : "rgba(245,158,11,0.15)",
+                    color: currentProblem.difficulty === "easy" ? "var(--accent-emerald)" : currentProblem.difficulty === "hard" ? "var(--gsu-red-light)" : "var(--accent-amber)",
                   }}>
                     {currentProblem.difficulty}
                   </span>
@@ -1170,7 +1170,7 @@ export default function ProgressPage() {
                     background: "rgba(245, 158, 11, 0.08)",
                     border: "1px solid rgba(245, 158, 11, 0.2)",
                     fontSize: "0.9rem",
-                    color: "#a16207",
+                    color: "var(--accent-amber)",
                   }}>
                     💡 {currentProblem.hint}
                   </div>
