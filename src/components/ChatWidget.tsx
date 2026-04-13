@@ -72,6 +72,8 @@ export default function ChatWidget() {
   const [hasGreeted, setHasGreeted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLButtonElement>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -83,6 +85,24 @@ export default function ChatWidget() {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 200);
     }
+  }, [open]);
+
+  // Click outside to close
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(target) &&
+        bubbleRef.current &&
+        !bubbleRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
   // Greeting message when first opened
@@ -142,6 +162,7 @@ export default function ChatWidget() {
     <>
       {/* ── Floating Button ── */}
       <button
+        ref={bubbleRef}
         onClick={() => setOpen(!open)}
         aria-label={open ? "Close chat" : "Open PantherBot"}
         style={{
@@ -176,6 +197,7 @@ export default function ChatWidget() {
 
       {/* ── Chat Panel ── */}
       <div
+        ref={panelRef}
         style={{
           position: "fixed",
           bottom: 96,
@@ -228,7 +250,7 @@ export default function ChatWidget() {
             <div style={{ fontWeight: 800, fontSize: 16 }}>PantherBot</div>
             <div style={{ fontSize: 11, opacity: 0.7 }}>AI Study Assistant</div>
           </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
             {messages.length > 1 && (
               <button
                 onClick={() => {
@@ -250,6 +272,29 @@ export default function ChatWidget() {
                 🗑️
               </button>
             )}
+            <button
+              onClick={() => setOpen(false)}
+              title="Close"
+              style={{
+                background: "rgba(255,255,255,0.15)",
+                border: "none",
+                borderRadius: 8,
+                width: 28,
+                height: 28,
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: 16,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.3)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+            >
+              ✕
+            </button>
           </div>
         </div>
 
