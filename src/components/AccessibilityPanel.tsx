@@ -131,7 +131,7 @@ export default function AccessibilityPanel() {
       )}
 
       {/* Floating Panel */}
-      <div ref={panelRef} style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999 }}>
+      <div ref={panelRef} style={{ position: "fixed", bottom: 20, left: 20, zIndex: 9999 }}>
         {/* Toggle Button */}
         <button
           onClick={() => setOpen(!open)}
@@ -177,7 +177,7 @@ export default function AccessibilityPanel() {
             style={{
               position: "absolute",
               bottom: 60,
-              right: 0,
+              left: 0,
               width: 300,
               background: "var(--bg-card)",
               border: "1px solid var(--border-color)",
