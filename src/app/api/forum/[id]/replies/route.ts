@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { rateLimit } from "@/lib/rateLimit";
+import { sanitizeText } from "@/lib/sanitize";
 
 /* ─── POST /api/forum/[id]/replies ───
    Add a reply to a thread.
@@ -18,12 +20,24 @@ export async function POST(
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Rate limit: max 20 replies per minute per IP
+    const rl = rateLimit(req, { limit: 20, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json({ error: rl.message }, { status: 429 });
+    }
+
+    // Sanitize to prevent XSS
+    const cleanBody = sanitizeText(body);
+    if (!cleanBody) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from("forum_replies")
       .insert({
         thread_id: threadId,
         author_id,
-        body: body.trim(),
+        body: cleanBody,
         reply_to_id: reply_to_id || null,
       })
       .select("id")

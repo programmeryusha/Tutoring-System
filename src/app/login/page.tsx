@@ -1,19 +1,50 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 30;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(0);
   const router = useRouter();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Countdown timer during lockout
+  useEffect(() => {
+    if (!lockedUntil) return;
+    timerRef.current = setInterval(() => {
+      const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockedUntil(null);
+        setAttempts(0);
+        setCountdown(0);
+        if (timerRef.current) clearInterval(timerRef.current);
+      } else {
+        setCountdown(remaining);
+      }
+    }, 500);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [lockedUntil]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    // Brute-force protection
+    if (lockedUntil && Date.now() < lockedUntil) {
+      setError(`Too many failed attempts. Try again in ${countdown} seconds.`);
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -22,7 +53,16 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_SECONDS * 1000;
+        setLockedUntil(until);
+        setCountdown(LOCKOUT_SECONDS);
+        setError(`Too many failed attempts. Account locked for ${LOCKOUT_SECONDS} seconds.`);
+      } else {
+        setError(`${error.message} (${MAX_ATTEMPTS - newAttempts} attempts remaining)`);
+      }
       setLoading(false);
       return;
     }

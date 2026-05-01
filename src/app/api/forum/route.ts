@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { rateLimit } from "@/lib/rateLimit";
+import { sanitizeText } from "@/lib/sanitize";
 
 /* ─── GET /api/forum ───
    List threads, optionally filtered by skill_id and sorted.
@@ -80,10 +82,24 @@ export async function GET(req: Request) {
 */
 export async function POST(req: Request) {
   try {
+    // Rate limit: max 10 forum posts per minute per IP
+    const rl = rateLimit(req, { limit: 10, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json({ error: rl.message }, { status: 429 });
+    }
+
     const { author_id, skill_id, title, body, tag } = await req.json();
 
     if (!author_id || !skill_id || !title || !body) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Sanitize inputs to prevent XSS
+    const cleanTitle = sanitizeText(title);
+    const cleanBody = sanitizeText(body);
+
+    if (!cleanTitle || !cleanBody) {
+      return NextResponse.json({ error: "Invalid input: HTML not allowed" }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -91,8 +107,8 @@ export async function POST(req: Request) {
       .insert({
         author_id,
         skill_id,
-        title: title.trim(),
-        body: body.trim(),
+        title: cleanTitle,
+        body: cleanBody,
         tag: tag || "question",
       })
       .select("id")

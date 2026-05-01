@@ -95,3 +95,65 @@ src/
 ## Team
 
 Built by GSU students for CSC 4350 — Software Engineering, Spring 2026.
+
+---
+
+## Security
+
+PantherTutor implements multiple layers of security:
+
+| Measure | Implementation |
+|---|---|
+| **HTTPS / SSL** | Enforced automatically by Vercel on all traffic |
+| **SQL Injection Prevention** | Supabase uses parameterized queries — no raw SQL from user input |
+| **XSS Protection** | Server-side sanitizer (`src/lib/sanitize.ts`) strips HTML tags from all user-submitted content before DB storage |
+| **Brute-Force Login Protection** | Client-side lockout after 5 failed attempts (30s lockout); server rate limiter via `src/lib/rateLimit.ts` |
+| **Row-Level Security (RLS)** | Every Supabase table has RLS policies — users can only access their own data |
+| **Secure Sessions** | Supabase Auth uses signed JWT tokens; sessions are HTTP-only and managed server-side |
+| **Rate Limiting** | API routes (forum, replies) are rate-limited per IP to prevent abuse |
+
+---
+
+## Performance Optimizations
+
+- **CDN** — Vercel Edge Network serves all static assets and pages from CDN globally
+- **Code Splitting** — Next.js App Router automatically splits bundles per route
+- **Font Optimization** — `next/font` ensures optimal font loading with zero layout shift
+- **Image Optimization** — Next.js `<Image>` component with lazy loading
+- **Minification** — Next.js production builds minify JS and CSS automatically
+
+---
+
+## Deployment & Infrastructure
+
+- **Hosting:** Vercel (serverless, auto-scaling)
+- **Database:** Supabase managed PostgreSQL (free tier)
+- **CI/CD:** GitHub Actions — lints, type-checks, and deploys on every push to `main`
+- **Monitoring:** Vercel Analytics tracks page views, performance, and user traffic
+
+### GitHub Actions Pipeline
+
+The workflow in `.github/workflows/deploy.yml`:
+1. Runs ESLint on every push/PR
+2. Runs TypeScript type check
+3. On merge to `main` — auto-deploys to Vercel production
+
+### Vercel Secrets Required
+
+Add these in **Vercel Project Settings → Environment Variables** and **GitHub Repo → Settings → Secrets**:
+
+```
+VERCEL_TOKEN        # From vercel.com/account/tokens
+VERCEL_ORG_ID       # From vercel.com/account
+VERCEL_PROJECT_ID   # From your project settings
+```
+
+---
+
+## Traffic Monitoring
+
+Vercel Analytics is enabled — view real-time traffic at:
+**vercel.com → your project → Analytics**
+
+Tracks: page views, unique visitors, top pages, Web Vitals (LCP, FID, CLS).
+
